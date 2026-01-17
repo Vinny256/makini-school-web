@@ -1,7 +1,4 @@
-/* Import Tailwind correctly for Vite/PostCSS */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 /* Keep your marquee code below */
 @keyframes marquee {
