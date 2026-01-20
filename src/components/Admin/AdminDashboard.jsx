@@ -1,36 +1,32 @@
-import React, { useState } from 'react';
-import AdminSidebar from './AdminSidebar';
-import StudentManagement from './StudentManagement';
-import TeacherManagement from './TeacherManagement';
-import ParentManagement from './ParentManagement';
+import React from 'react';
+import PrincipalHome from '../Dashboards/Principal';
+import DeanHome from '../Dashboards/DeanOfStudents';
+// Import other roles as we create them
 
 const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState('students');
+  // Get the user session we saved during login
+  const user = JSON.parse(localStorage.getItem('vinnie_user'));
 
-  return (
-    <div className="flex h-screen bg-gray-100 dark:bg-slate-900">
-      {/* 1. Permanent Sidebar */}
-      <AdminSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+  if (!user) {
+    window.location.href = '/staff-login';
+    return null;
+  }
 
-      {/* 2. Dynamic Main Content Area */}
-      <main className="flex-1 overflow-y-auto p-8">
-        <header className="mb-8 flex justify-between items-center">
-          <h1 className="text-3xl font-black text-blue-900 dark:text-white uppercase">
-            Admin Portal: {activeTab}
-          </h1>
-          <div className="bg-white dark:bg-slate-800 px-4 py-2 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
-            <span className="text-sm font-bold text-gray-500">Logged in as:</span>
-            <span className="ml-2 text-sm font-black text-blue-600">Principal</span>
-          </div>
-        </header>
-
-        {/* Content Switches based on the sidebar click */}
-        {activeTab === 'students' && <StudentManagement />}
-        {activeTab === 'teachers' && <TeacherManagement />}
-        {activeTab === 'parents' && <ParentManagement />}
-      </main>
-    </div>
-  );
+  // ROLE SWITCHER: This decides which homepage to show
+  switch (user.role) {
+    case 'Principal':
+      return <PrincipalHome user={user} />;
+    case 'Dean of Students':
+      return <DeanHome user={user} />;
+    default:
+      return (
+        <div className="p-20 text-center font-sans">
+          <i className="fas fa-tools text-5xl text-slate-300 mb-4"></i>
+          <h2 className="text-xl font-bold text-slate-500">Portal Under Construction</h2>
+          <p className="text-slate-400">Your specific role dashboard is being configured by Vinnie Tech.</p>
+        </div>
+      );
+  }
 };
 
 export default AdminDashboard;

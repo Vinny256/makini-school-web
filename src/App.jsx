@@ -1,36 +1,53 @@
-import React from 'react'; // Ensure this is present
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { useState } from 'react'; 
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast'; 
 
 // Components
 import Navbar from './components/Navbar';
+import VinnieMasterDashboard from './components/VinnieMasterDashboard';
 import GuestHome from './components/Guest/GuestHome';
-import AdminDashboard from './components/Admin/AdminDashboard';
+import LoginSelection from './components/LoginSelection'; 
+import AdminLogin from './components/Admin/AdminLogin';
+import StaffLogin from './components/StaffLogin'; 
+import ParentLogin from './components/ParentLogin'; 
+import AdminDashboard from './components/Admin/AdminDashboard'; // Import kept as is
+
+const ProtectedRoute = ({ children, isAdmin }) => {
+  if (!isAdmin) return <Navigate to="/vinnie-portal-auth" replace />;
+  return children;
+};
 
 const App = () => {
+  const [isAdmin, setIsAdmin] = useState(false);
+
   return (
     <Router>
-      {/* Toaster must be inside the Router and inside a functional component like <App /> */}
-      <Toaster 
-        position="top-right" 
-        toastOptions={{
-          className: 'font-bold',
-          style: {
-            borderRadius: '15px',
-            background: '#1e3a8a',
-            color: '#fff',
-          },
-        }} 
-      />
-
+      <Toaster position="top-right" />
       <div className="min-h-screen bg-white">
-        <Navbar />
         <Routes>
-          {/* Public Website */}
-          <Route path="/" element={<GuestHome />} />
+          {/* Public Landing Page */}
+          <Route path="/" element={<><Navbar /><GuestHome /></>} />
           
-          {/* Private Admin Portal */}
+          {/* Portal Selection */}
+          <Route path="/login-selection" element={<LoginSelection />} />
+          
+          {/* Specific Portals */}
+          <Route path="/staff-login" element={<StaffLogin />} />
+          <Route path="/parent-login" element={<ParentLogin />} />
+
+          {/* Principal/Admin Dashboard 
+              This fixes the "No routes matched location /admin" error 
+          */}
           <Route path="/admin" element={<AdminDashboard />} />
+
+          {/* Master Admin Auth */}
+          <Route path="/vinnie-portal-auth" element={<AdminLogin setIsAdmin={setIsAdmin} />} />
+          
+          <Route path="/vinnie-tech-master-dashboard" element={
+            <ProtectedRoute isAdmin={isAdmin}>
+              <VinnieMasterDashboard />
+            </ProtectedRoute>
+          } />
         </Routes>
       </div>
     </Router>
