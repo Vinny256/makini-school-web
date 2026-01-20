@@ -1,12 +1,12 @@
-import API from '../api';
+import axios from 'axios';
 
-// Switch between local and live backend easily
+// Switch between local and live backend automatically
 const isProduction = import.meta.env.PROD; 
 
 const API = axios.create({
   baseURL: isProduction 
-    ? 'https://your-backend-service-name.onrender.com/api' // Your LIVE Render URL
-    : 'http://localhost:5000/api' // Your local URL
+    ? 'https://makini-school-backend.onrender.com/api' // Replace with your REAL live backend URL
+    : 'http://localhost:5000/api' 
 });
 
-export default API;
+export default API; // Export the single instance
