@@ -5,7 +5,7 @@ const isProduction = import.meta.env.PROD;
 
 const API = axios.create({
   baseURL: isProduction 
-    ? 'https://makini-school-backend.onrender.com/api' // Replace with your REAL live backend URL
+    ? 'https://makini-backend-1.onrender.com' // Replace with your REAL live backend URL
     : 'http://localhost:5000/api' 
 });
 
