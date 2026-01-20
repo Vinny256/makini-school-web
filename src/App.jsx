@@ -1,57 +1,15 @@
-import React, { useState } from 'react'; 
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast'; 
+import React from 'react';
 
-// Components
-import Navbar from './components/Navbar';
-import VinnieMasterDashboard from './components/VinnieMasterDashboard';
-import GuestHome from './components/Guest/GuestHome';
-import LoginSelection from './components/LoginSelection'; 
-import AdminLogin from './components/Admin/AdminLogin';
-import StaffLogin from './components/StaffLogin'; 
-import ParentLogin from './components/ParentLogin'; 
-import AdminDashboard from './components/Admin/AdminDashboard'; // Import kept as is
-
-const ProtectedRoute = ({ children, isAdmin }) => {
-  if (!isAdmin) return <Navigate to="/vinnie-portal-auth" replace />;
-  return children;
-};
-
-const App = () => {
-  const [isAdmin, setIsAdmin] = useState(false);
-
+const ParentLogin = () => {
   return (
-    <Router>
-      <Toaster position="top-right" />
-      <div className="min-h-screen bg-white">
-        <Routes>
-          {/* Public Landing Page */}
-          <Route path="/" element={<><Navbar /><GuestHome /></>} />
-          
-          {/* Portal Selection */}
-          <Route path="/login-selection" element={<LoginSelection />} />
-          
-          {/* Specific Portals */}
-          <Route path="/staff-login" element={<StaffLogin />} />
-          <Route path="/parent-login" element={<ParentLogin />} />
-
-          {/* Principal/Admin Dashboard 
-              This fixes the "No routes matched location /admin" error 
-          */}
-          <Route path="/admin" element={<AdminDashboard />} />
-
-          {/* Master Admin Auth */}
-          <Route path="/vinnie-portal-auth" element={<AdminLogin setIsAdmin={setIsAdmin} />} />
-          
-          <Route path="/vinnie-tech-master-dashboard" element={
-            <ProtectedRoute isAdmin={isAdmin}>
-              <VinnieMasterDashboard />
-            </ProtectedRoute>
-          } />
-        </Routes>
+    <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white font-sans">
+      <div className="text-center">
+        <i className="fas fa-user-shield text-5xl text-blue-500 mb-4"></i>
+        <h1 className="text-2xl font-black italic uppercase">Parent Portal</h1>
+        <p className="text-slate-400 mt-2">Vinnie Tech: Coming Soon</p>
       </div>
-    </Router>
+    </div>
   );
 };
 
-export default App;
+export default ParentLogin;
