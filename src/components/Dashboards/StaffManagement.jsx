@@ -15,7 +15,7 @@ const StaffManagement = ({ user }) => {
 
   const fetchStaff = async () => {
     try {
-      const res = await API.get(`http://localhost:5000/api/staff/school/${user.schoolId}`);
+      const res = await API.get(`/staff/school/${user.schoolId}`);
       setStaffList(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       toast.error("Failed to load staff list");
@@ -27,7 +27,7 @@ const StaffManagement = ({ user }) => {
   const handleAdd = async (e) => {
     e.preventDefault();
     try {
-      await API.post("http://localhost:5000/api/staff/add", { ...formData, schoolId: user.schoolId });
+      await API.post("/staff/add", { ...formData, schoolId: user.schoolId });
       toast.success("Staff Registered");
       setFormData({ fullName: '', idNumber: '', tscNumber: '', role: 'Teacher' }); // Reset form
       fetchStaff();
@@ -37,7 +37,7 @@ const StaffManagement = ({ user }) => {
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to remove this staff member?")) {
       try {
-        await API.delete(`http://localhost:5000/api/staff/${id}`);
+        await API.delete(`/staff/${id}`);
         toast.success("Staff Removed");
         fetchStaff();
       } catch (err) { toast.error("Delete failed"); }

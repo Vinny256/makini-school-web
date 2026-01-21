@@ -11,7 +11,7 @@ const Principal = ({ user }) => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await API.get(`http://localhost:5000/api/admin/stats/${user.schoolId}`);
+        const res = await API.get(`/admin/stats/${user.schoolId}`);
         // Ensure numbers are handled correctly if returned as strings from PostgreSQL
         setStats({
           staff: parseInt(res.data.staff) || 0,

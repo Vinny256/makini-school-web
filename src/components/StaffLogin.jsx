@@ -14,7 +14,7 @@ const StaffLogin = () => {
     
     try {
       // Connects to your backend on Port 5000
-      const res = await API.post("http://localhost:5000/api/staff/login", formData);
+      const res = await API.post("/staff/login", formData);
       
       if (res.data.success) {
         // SAVING SESSION: This allows the AdminDashboard to load school data
