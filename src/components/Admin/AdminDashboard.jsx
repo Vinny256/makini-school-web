@@ -3,6 +3,7 @@ import PrincipalHome from '../Dashboards/Principal';
 import DeanHome from '../Dashboards/DeanOfStudents';
 // Vinnie: Importing the new Teacher component
 import TeacherHome from '../Dashboards/Teacher'; 
+import ParentHome from '../Dashboards/Parent';
 
 const AdminDashboard = () => {
   // Get the user session we saved during login
@@ -22,6 +23,9 @@ const AdminDashboard = () => {
     // Vinnie: Added the Teacher case here so it stops showing "Under Construction"
     case 'Teacher':
       return <TeacherHome user={user} />;
+
+      case 'Parent':
+    return <ParentHome user={user} />;
     default:
       return (
         <div className="p-20 text-center font-sans text-slate-900">
