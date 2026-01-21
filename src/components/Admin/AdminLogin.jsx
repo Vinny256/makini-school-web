@@ -12,7 +12,7 @@ const AdminLogin = ({ setIsAdmin }) => {
     
     try {
       // Connects to your backend to check .env credentials
-      const response = await axios.post("http://localhost:5000/api/superadmin/login", creds);
+      const response = await API.post("http://localhost:5000/api/superadmin/login", creds);
       
       if (response.data.success) {
         setIsAdmin(true); // Grant access to the protected route

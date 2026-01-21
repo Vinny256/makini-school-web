@@ -22,7 +22,7 @@ const StreamSetup = () => {
     try {
       // Remove any empty strings before saving
       const validStreams = streams.filter(s => s.trim() !== "");
-      await axios.post('http://localhost:5000/api/config/streams', { streams: validStreams });
+      await API.post('http://localhost:5000/api/config/streams', { streams: validStreams });
       toast.success("Streams saved! Your enrollment dropdown is updated.");
     } catch (err) {
       toast.error("Failed to save streams. Check backend.");

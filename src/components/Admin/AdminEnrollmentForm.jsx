@@ -17,7 +17,7 @@ const AdminEnrollmentForm = () => {
   useEffect(() => {
     const fetchStreams = async () => {
       try {
-        const response = await axios.get("http://localhost:5000/api/config/streams");
+        const response = await API.get("http://localhost:5000/api/config/streams");
         
         // Debugging: Right-click your browser -> Inspect -> Console to see this
         console.log("Full Backend Response:", response.data);
@@ -44,7 +44,7 @@ const AdminEnrollmentForm = () => {
     const curriculum = (studentData.levelType === 'Grade') ? 'CBC' : '8-4-4';
     
     try {
-      const response = await axios.post("http://localhost:5000/api/students/enroll", { ...studentData, curriculum });
+      const response = await API.post("http://localhost:5000/api/students/enroll", { ...studentData, curriculum });
       if (response.status === 201) {
         toast.success(`Enrolled ${studentData.fullName} to ${curriculum}!`);
         // Reset form but keep the streams list

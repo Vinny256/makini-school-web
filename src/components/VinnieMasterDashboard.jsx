@@ -15,7 +15,7 @@ const VinnieMasterDashboard = () => {
   // Fetch all schools from your DB
   const fetchSchools = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/superadmin/schools");
+      const res = await API.get("http://localhost:5000/api/superadmin/schools");
       setSchools(res.data);
     } catch (err) { toast.error("Error fetching schools"); }
   };
@@ -25,7 +25,7 @@ const VinnieMasterDashboard = () => {
   const handleAddSchool = async (e) => {
     e.preventDefault();
     try {
-      await axios.post("http://localhost:5000/api/superadmin/add-school", formData);
+      await API.post("http://localhost:5000/api/superadmin/add-school", formData);
       toast.success(`${formData.schoolName} is now LIVE!`);
       setFormData({ schoolName: '', principalName: '', tscNumber: '', idNumber: '', vinnieDigitalCode: '' });
       fetchSchools();
