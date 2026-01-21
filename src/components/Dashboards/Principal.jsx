@@ -12,7 +12,7 @@ const Principal = ({ user }) => {
     const fetchStats = async () => {
       try {
         // Vinnie: I kept your route exactly as it was
-        const res = await API.get(`/admin/stats/3`);
+        const res = await API.get(`/admin/stats/${user.schoolId}`);
         setStats({
           staff: parseInt(res.data.staff) || 0,
           students: parseInt(res.data.students) || 0,
