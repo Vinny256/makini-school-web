@@ -7,11 +7,13 @@ const Principal = ({ user }) => {
   const [stats, setStats] = useState({ staff: 0, students: 0, meanGrade: '0.0' });
   const [activeTab, setActiveTab] = useState('Overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
+  // Vinnie: This replaces the annoying alerts
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        // Vinnie: I kept your route exactly as it was
         const res = await API.get(`/admin/stats/${user.schoolId}`);
         setStats({
           staff: parseInt(res.data.staff) || 0,
@@ -25,6 +27,12 @@ const Principal = ({ user }) => {
     if (user.schoolId) fetchStats();
   }, [user.schoolId, activeTab]);
 
+  // Vinnie: Logic for the Logout
+  const handleLogout = () => {
+    localStorage.clear();
+    window.location.href='/';
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-slate-900 overflow-x-hidden">
       
@@ -35,12 +43,11 @@ const Principal = ({ user }) => {
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
           className="w-10 h-10 flex items-center justify-center bg-slate-800 rounded-lg active:scale-90 transition-all"
         >
-          {/* This switches between the Bars and the X icon */}
           <i className={`fas ${isSidebarOpen ? 'fa-times' : 'fa-bars'} text-xl text-blue-400`}></i>
         </button>
       </div>
 
-      {/* COMMAND CENTER SIDEBAR - RESPONSIVE FIX */}
+      {/* COMMAND CENTER SIDEBAR */}
       <aside className={`
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
         md:translate-x-0 transition-transform duration-300 ease-in-out
@@ -76,17 +83,37 @@ const Principal = ({ user }) => {
           </button>
         </nav>
 
-        <button 
-          onClick={() => { localStorage.clear(); window.location.href='/'; }}
-          className="mt-6 flex items-center gap-4 w-full p-4 bg-red-600/10 text-red-500 rounded-2xl font-bold hover:bg-red-600 hover:text-white transition-all"
-        >
-          <i className="fas fa-sign-out-alt"></i> Exit Portal
-        </button>
+        {/* VINNIE: CUSTOM EXIT CONFIRMATION (NO MORE ALERTS) */}
+        {!showExitConfirm ? (
+          <button 
+            onClick={() => setShowExitConfirm(true)}
+            className="mt-6 flex items-center gap-4 w-full p-4 bg-red-600/10 text-red-500 rounded-2xl font-bold hover:bg-red-600 hover:text-white transition-all"
+          >
+            <i className="fas fa-sign-out-alt"></i> Exit Portal
+          </button>
+        ) : (
+          <div className="mt-6 p-4 bg-slate-800 rounded-2xl border border-slate-700 animate-in fade-in zoom-in duration-300">
+            <p className="text-[10px] font-black uppercase text-center mb-3 tracking-tighter text-slate-400">Confirm Portal Exit?</p>
+            <div className="flex gap-2">
+              <button 
+                onClick={handleLogout}
+                className="flex-1 p-2 bg-red-600 text-white rounded-xl text-xs font-black uppercase hover:bg-red-700 transition-all"
+              >
+                Yes
+              </button>
+              <button 
+                onClick={() => setShowExitConfirm(false)}
+                className="flex-1 p-2 bg-slate-700 text-white rounded-xl text-xs font-black uppercase hover:bg-slate-600 transition-all"
+              >
+                No
+              </button>
+            </div>
+          </div>
+        )}
       </aside>
 
       {/* MAIN CONTENT AREA */}
       <main className="flex-1 p-4 md:p-10 bg-slate-50 overflow-y-auto">
-        {/* Overlay to close sidebar on mobile when clicking outside */}
         {isSidebarOpen && (
           <div 
             className="fixed inset-0 bg-black/50 z-30 md:hidden" 
@@ -110,12 +137,9 @@ const Principal = ({ user }) => {
           </div>
         </header>
 
-        {/* TAB RENDERING */}
         {activeTab === 'Overview' && (
           <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              
-              {/* STAFF METRIC - Vinnie: This is where Mr. James will show up! */}
               <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-6 hover:shadow-md transition-all">
                 <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center text-xl shadow-inner">
                   <i className="fas fa-users"></i>
@@ -126,7 +150,6 @@ const Principal = ({ user }) => {
                 </div>
               </div>
 
-              {/* STUDENT METRIC */}
               <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-6 hover:shadow-md transition-all">
                 <div className="w-14 h-14 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center text-xl shadow-inner">
                   <i className="fas fa-user-graduate"></i>
@@ -137,7 +160,6 @@ const Principal = ({ user }) => {
                 </div>
               </div>
 
-              {/* ACADEMIC METRIC */}
               <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-6 hover:shadow-md transition-all">
                 <div className="w-14 h-14 bg-yellow-100 text-yellow-600 rounded-2xl flex items-center justify-center text-xl shadow-inner">
                   <i className="fas fa-medal"></i>
@@ -149,12 +171,11 @@ const Principal = ({ user }) => {
               </div>
             </div>
 
-            {/* INSTITUTIONAL BANNER */}
             <div className="bg-blue-900 text-white p-8 md:p-14 rounded-[3rem] shadow-2xl relative overflow-hidden">
                <div className="relative z-10">
                  <h2 className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter mb-4">Institutional Oversight</h2>
                  <p className="max-w-md text-blue-200 font-medium leading-relaxed text-sm md:text-base">
-                   All administrative departments are active. You are currently overseeing {stats.staff} staff members and {stats.students} students in {user.schoolName}.
+                    All administrative departments are active. You are currently overseeing {stats.staff} staff members and {stats.students} students in {user.schoolName}.
                  </p>
                </div>
                <i className="fas fa-shield-alt absolute -bottom-10 -right-10 text-[12rem] md:text-[20rem] text-white/5 rotate-12"></i>
@@ -163,7 +184,7 @@ const Principal = ({ user }) => {
         )}
 
         {activeTab === 'Staff Management' && (
-           <StaffManagement user={user} />
+            <StaffManagement user={user} />
         )}
       </main>
     </div>
