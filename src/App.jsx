@@ -9,7 +9,8 @@ import GuestHome from './components/Guest/GuestHome';
 import LoginSelection from './components/LoginSelection'; 
 import AdminLogin from './components/Admin/AdminLogin';
 import StaffLogin from './components/StaffLogin'; 
-// import ParentLogin from './components/ParentLogin'; // Commented out to fix build error
+// VINNIE: Uncommented ParentLogin import
+import ParentLogin from './components/Parent/ParentLogin'; 
 import AdminDashboard from './components/Admin/AdminDashboard'; 
 
 const ProtectedRoute = ({ children, isAdmin }) => {
@@ -34,8 +35,8 @@ const App = () => {
           {/* Specific Portals */}
           <Route path="/staff-login" element={<StaffLogin />} />
           
-          {/* Commented out because the file does not exist yet */}
-          {/* <Route path="/parent-login" element={<ParentLogin />} /> */}
+          {/* VINNIE: Activated the parent-login route */}
+          <Route path="/parent-login" element={<ParentLogin />} />
 
           {/* Principal/Admin Dashboard 
               This fixes the "No routes matched location /admin" error 
