@@ -11,8 +11,8 @@ const Principal = ({ user }) => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
+        // Vinnie: I kept your route exactly as it was
         const res = await API.get(`/admin/stats/${user.schoolId}`);
-        // Ensure numbers are handled correctly if returned as strings from PostgreSQL
         setStats({
           staff: parseInt(res.data.staff) || 0,
           students: parseInt(res.data.students) || 0,
@@ -22,22 +22,31 @@ const Principal = ({ user }) => {
         console.error("Stats error:", err);
       }
     };
-    fetchStats();
+    if (user.schoolId) fetchStats();
   }, [user.schoolId, activeTab]);
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-slate-900">
+    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-slate-900 overflow-x-hidden">
       
-      {/* MOBILE MENU */}
-      <div className="md:hidden bg-slate-900 text-white p-4 flex justify-between items-center sticky top-0 z-50">
-        <h2 className="font-black italic uppercase">Vinnie <span className="text-blue-500">ERP</span></h2>
-        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
-          <i className={`fas ${isSidebarOpen ? 'fa-times' : 'fa-bars'} text-2xl`}></i>
+      {/* MOBILE MENU - FIXED HAMBURGER */}
+      <div className="md:hidden bg-slate-900 text-white p-4 flex justify-between items-center sticky top-0 z-50 shadow-xl">
+        <h2 className="font-black italic uppercase tracking-tighter">Vinnie <span className="text-blue-500">ERP</span></h2>
+        <button 
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="w-10 h-10 flex items-center justify-center bg-slate-800 rounded-lg active:scale-90 transition-all"
+        >
+          {/* This switches between the Bars and the X icon */}
+          <i className={`fas ${isSidebarOpen ? 'fa-times' : 'fa-bars'} text-xl text-blue-400`}></i>
         </button>
       </div>
 
-      {/* COMMAND CENTER SIDEBAR */}
-      <aside className={`${isSidebarOpen ? 'flex' : 'hidden'} md:flex w-full md:w-72 bg-slate-900 text-white flex-col p-6 sticky top-0 h-screen z-40`}>
+      {/* COMMAND CENTER SIDEBAR - RESPONSIVE FIX */}
+      <aside className={`
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
+        md:translate-x-0 transition-transform duration-300 ease-in-out
+        fixed md:relative w-72 bg-slate-900 text-white flex-col p-6 h-screen z-40
+        ${isSidebarOpen ? 'flex' : 'hidden md:flex'}
+      `}>
         <div className="hidden md:block mb-10 text-center">
           <div className="w-16 h-16 bg-blue-600 rounded-2xl mx-auto flex items-center justify-center mb-4 shadow-lg shadow-blue-500/30">
             <i className="fas fa-university text-2xl"></i>
@@ -76,7 +85,15 @@ const Principal = ({ user }) => {
       </aside>
 
       {/* MAIN CONTENT AREA */}
-      <main className="flex-1 p-4 md:p-10">
+      <main className="flex-1 p-4 md:p-10 bg-slate-50 overflow-y-auto">
+        {/* Overlay to close sidebar on mobile when clicking outside */}
+        {isSidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black/50 z-30 md:hidden" 
+            onClick={() => setIsSidebarOpen(false)}
+          ></div>
+        )}
+
         <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-black text-slate-900 tracking-tight italic uppercase">
@@ -86,9 +103,8 @@ const Principal = ({ user }) => {
               Principal: {user.name} | {user.schoolName}
             </p>
           </div>
-          {/* ACTION BUTTONS */}
           <div className="flex gap-3">
-            <button className="bg-slate-800 text-white px-5 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-700 transition-all">
+            <button className="bg-slate-800 text-white px-5 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-700 transition-all shadow-md">
               <i className="fas fa-user-graduate"></i> Registered Students
             </button>
           </div>
@@ -98,8 +114,9 @@ const Principal = ({ user }) => {
         {activeTab === 'Overview' && (
           <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* STAFF METRIC */}
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-6">
+              
+              {/* STAFF METRIC - Vinnie: This is where Mr. James will show up! */}
+              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-6 hover:shadow-md transition-all">
                 <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center text-xl shadow-inner">
                   <i className="fas fa-users"></i>
                 </div>
@@ -110,7 +127,7 @@ const Principal = ({ user }) => {
               </div>
 
               {/* STUDENT METRIC */}
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-6">
+              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-6 hover:shadow-md transition-all">
                 <div className="w-14 h-14 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center text-xl shadow-inner">
                   <i className="fas fa-user-graduate"></i>
                 </div>
@@ -121,7 +138,7 @@ const Principal = ({ user }) => {
               </div>
 
               {/* ACADEMIC METRIC */}
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-6">
+              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-6 hover:shadow-md transition-all">
                 <div className="w-14 h-14 bg-yellow-100 text-yellow-600 rounded-2xl flex items-center justify-center text-xl shadow-inner">
                   <i className="fas fa-medal"></i>
                 </div>
@@ -133,14 +150,14 @@ const Principal = ({ user }) => {
             </div>
 
             {/* INSTITUTIONAL BANNER */}
-            <div className="bg-blue-900 text-white p-10 rounded-[3rem] shadow-2xl relative overflow-hidden">
+            <div className="bg-blue-900 text-white p-8 md:p-14 rounded-[3rem] shadow-2xl relative overflow-hidden">
                <div className="relative z-10">
-                 <h2 className="text-2xl font-black italic uppercase tracking-tighter mb-4">Institutional Oversight</h2>
-                 <p className="max-w-md text-blue-200 font-medium leading-relaxed">
-                    All administrative departments are active. You are currently overseeing {stats.staff} staff members and {stats.students} students in {user.schoolName}.
+                 <h2 className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter mb-4">Institutional Oversight</h2>
+                 <p className="max-w-md text-blue-200 font-medium leading-relaxed text-sm md:text-base">
+                   All administrative departments are active. You are currently overseeing {stats.staff} staff members and {stats.students} students in {user.schoolName}.
                  </p>
                </div>
-               <i className="fas fa-shield-alt absolute -bottom-10 -right-10 text-[15rem] text-white/5 rotate-12"></i>
+               <i className="fas fa-shield-alt absolute -bottom-10 -right-10 text-[12rem] md:text-[20rem] text-white/5 rotate-12"></i>
             </div>
           </div>
         )}
