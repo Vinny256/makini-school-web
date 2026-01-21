@@ -6,6 +6,10 @@ import { toast } from 'react-hot-toast';
 const StaffLogin = () => {
   const [formData, setFormData] = useState({ idNumber: '', vinnieCode: '' });
   const [loading, setLoading] = useState(false);
+  
+  // New state for toggling code visibility
+  const [showCode, setShowCode] = useState(false);
+  
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
@@ -82,12 +86,21 @@ const StaffLogin = () => {
             <div className="relative">
               <i className="fas fa-key absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
               <input 
-                type="password" 
+                type={showCode ? "text" : "password"} 
                 placeholder="1121XX" 
                 required
-                className="w-full pl-12 p-4 bg-slate-800 rounded-2xl border border-slate-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-white font-mono"
+                className="w-full pl-12 pr-12 p-4 bg-slate-800 rounded-2xl border border-slate-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-white font-mono"
                 onChange={(e) => setFormData({...formData, vinnieCode: e.target.value})}
               />
+              
+              {/* EYE ICON TOGGLE */}
+              <button
+                type="button"
+                onClick={() => setShowCode(!showCode)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-blue-500 transition-colors focus:outline-none"
+              >
+                <i className={`fas ${showCode ? 'fa-eye-slash' : 'fa-eye'} text-sm`}></i>
+              </button>
             </div>
           </div>
 
