@@ -13,15 +13,12 @@ const StaffLogin = () => {
     setLoading(true);
     
     try {
-      // Connects to your backend on Port 5000
       const res = await API.post("/staff/login", formData);
       
       if (res.data.success) {
-        // SAVING SESSION: This allows the AdminDashboard to load school data
         localStorage.setItem('vinnie_user', JSON.stringify(res.data.user));
-        
         toast.success(`Welcome back, ${res.data.user.name}`);
-        navigate('/admin'); // Redirects to the Principal's Dashboard
+        navigate('/admin'); 
       }
     } catch (err) {
       const errorMsg = err.response?.data?.message || "Invalid Credentials";
@@ -33,9 +30,28 @@ const StaffLogin = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 font-sans text-white">
+      {/* VINNIE TECH STYLE LOADING BARS CSS */}
+      <style>
+        {`
+          .loading-bars { display: flex; justify-content: center; align-items: center; gap: 4px; height: 20px; }
+          .bar { width: 4px; height: 100%; background: white; animation: vinnie-bounce 1s infinite ease-in-out; border-radius: 10px; }
+          .bar:nth-child(2) { animation-delay: 0.1s; }
+          .bar:nth-child(3) { animation-delay: 0.2s; }
+          .bar:nth-child(4) { animation-delay: 0.3s; }
+          @keyframes vinnie-bounce {
+            0%, 100% { transform: scaleY(0.5); opacity: 0.5; }
+            50% { transform: scaleY(1.2); opacity: 1; }
+          }
+          .shimmer-line { height: 2px; width: 100%; background: linear-gradient(90deg, transparent, #2563eb, transparent); background-size: 200% 100%; animation: shimmer 1.5s infinite linear; }
+          @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+        `}
+      </style>
+
       <div className="max-w-md w-full bg-slate-900 p-8 rounded-3xl border border-slate-800 shadow-2xl relative overflow-hidden">
         
-        {/* Decorative background glow */}
+        {/* PROGRESS LINE AT TOP DURING LOADING */}
+        {loading && <div className="absolute top-0 left-0 w-full shimmer-line"></div>}
+
         <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-600/10 rounded-full blur-3xl"></div>
 
         <div className="text-center mb-10 relative">
@@ -78,14 +94,21 @@ const StaffLogin = () => {
           <button 
             type="submit" 
             disabled={loading}
-            className={`w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-2xl shadow-lg shadow-blue-600/20 transition-all uppercase tracking-widest mt-4 ${loading ? 'opacity-50 cursor-not-allowed' : 'active:scale-95'}`}
+            className={`w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-2xl shadow-lg shadow-blue-600/20 transition-all uppercase tracking-widest mt-4 flex items-center justify-center min-h-[60px] ${loading ? 'opacity-90 cursor-not-allowed' : 'active:scale-95'}`}
           >
             {loading ? (
-              <i className="fas fa-circle-notch animate-spin mr-2"></i>
+              <div className="loading-bars">
+                <div className="bar"></div>
+                <div className="bar"></div>
+                <div className="bar"></div>
+                <div className="bar"></div>
+              </div>
             ) : (
-              <i className="fas fa-sign-in-alt mr-2"></i>
+              <>
+                <i className="fas fa-sign-in-alt mr-2"></i>
+                Authorize Access
+              </>
             )}
-            {loading ? 'Verifying...' : 'Authorize Access'}
           </button>
         </form>
 
