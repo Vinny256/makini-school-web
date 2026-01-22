@@ -7,7 +7,7 @@ import Gallery from './Gallery';
 import AboutUs from './AboutUs';
 import RegistrationForm from './RegistrationForm';
 import Contact from './Contact';
-import axios from 'axios'; // Ensure axios is installed
+import { askPublicAI } from '../../api'; // Switched from axios to your central API service
 
 const GuestHome = ({ submittedName, setSubmittedName }) => {
   const navigate = useNavigate();
@@ -38,13 +38,10 @@ const GuestHome = ({ submittedName, setSubmittedName }) => {
     setIsTyping(true);
 
     try {
-      // Point this to your backend route where DeepSeek is configured
-      const response = await axios.post('https://your-backend-url.com/api/public/ask-ai', {
-        question: userInput,
-        history: newMessages // Sending history for DeepSeek session memory
-      });
+      // Logic now uses your centralized api.js function
+      const data = await askPublicAI(userInput, newMessages);
       
-      setMessages(prev => [...prev, { role: 'ai', text: response.data.answer }]);
+      setMessages(prev => [...prev, { role: 'ai', text: data.answer }]);
     } catch (error) {
       setMessages(prev => [...prev, { role: 'ai', text: "I'm having trouble connecting to the school office. Please try again later!" }]);
     } finally {
