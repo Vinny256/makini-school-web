@@ -3,8 +3,8 @@ import axios from 'axios';
 // We are forcing the Render URL here to break the 'localhost' loop
 // To test locally, comment out the Render line and uncomment the localhost line below.
 const API = axios.create({
-  baseURL: 'https://makini-backend-crgy.onrender.com/api'
-    //'http://localhost:5000/api' 
+  //baseURL: 'https://makini-backend-crgy.onrender.com/api'
+   baseURL: 'http://localhost:5000/api' 
 });
 
 // --- VINNIE TECH PUBLIC AI SERVICE (Added) ---
