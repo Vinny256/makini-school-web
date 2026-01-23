@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react'; // Added useState and hooks
 import { useNavigate } from 'react-router-dom';
 import { jsPDF } from "jspdf"; // Added for PDF generation
+import ReactMarkdown from 'react-markdown'; // Added for formatting
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'; // Added for Compiler look
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'; // VS Code Theme
 import About from './About';
 import Programmes from './Programmes';
 import News from './News';
@@ -185,11 +188,58 @@ const GuestHome = ({ submittedName, setSubmittedName }) => {
                         </button>
                       </div>
                     ) : (
-                      /* NORMAL CHAT BUBBLE */
-                      <div className={`max-w-[85%] p-4 rounded-3xl text-xs font-bold shadow-sm whitespace-pre-line leading-relaxed ${
+                      /* NORMAL CHAT BUBBLE WITH COMPILER STYLING */
+                      <div className={`max-w-[85%] p-4 rounded-3xl text-xs font-bold shadow-sm leading-relaxed ${
                         msg.role === 'ai' ? 'bg-white text-slate-700 rounded-tl-none border border-slate-100' : 'bg-blue-600 text-white rounded-tr-none'
                       }`}>
-                        {formatChatText(msg.text)}
+                        <ReactMarkdown
+                          components={{
+                            // Styled Italics for "actions" like *slams head*
+                            em: ({node, ...props}) => <i className="text-slate-400 font-medium italic pr-1" {...props} />,
+                            // Bold text
+                            strong: ({node, ...props}) => <b className="font-black text-blue-800" {...props} />,
+                            // VS Code Compiler View for Code Blocks
+                            code: ({node, inline, className, children, ...props}) => {
+                              const match = /language-(\w+)/.exec(className || '');
+                              const codeContent = String(children).replace(/\n$/, '');
+                              return !inline ? (
+                                <div className="relative my-3 group">
+                                  <div className="flex justify-between items-center bg-[#1e1e1e] px-3 py-1 rounded-t-lg border-b border-white/10">
+                                    <span className="text-[8px] text-slate-400 font-mono uppercase">Compiler Output</span>
+                                    <button 
+                                      onClick={() => navigator.clipboard.writeText(codeContent)}
+                                      className="text-slate-300 hover:text-white transition-colors p-1"
+                                      title="Copy Code"
+                                    >
+                                      <i className="fas fa-copy text-[10px]"></i>
+                                    </button>
+                                  </div>
+                                  <SyntaxHighlighter
+                                    style={vscDarkPlus}
+                                    language={match ? match[1] : 'javascript'}
+                                    PreTag="div"
+                                    customStyle={{
+                                      margin: 0,
+                                      borderBottomLeftRadius: '12px',
+                                      borderBottomRightRadius: '12px',
+                                      fontSize: '10px',
+                                      padding: '12px'
+                                    }}
+                                    {...props}
+                                  >
+                                    {codeContent}
+                                  </SyntaxHighlighter>
+                                </div>
+                              ) : (
+                                <code className="bg-slate-100 text-red-500 px-1 rounded" {...props}>
+                                  {children}
+                                </code>
+                              );
+                            }
+                          }}
+                        >
+                          {msg.text}
+                        </ReactMarkdown>
                       </div>
                     )}
                   </div>
