@@ -10,6 +10,7 @@ const StudentAdmissions = ({ user, onStudentAdmitted }) => {
   const [studentForm, setStudentForm] = useState({
     admissionNumber: '',
     fullName: '',
+    gender: 'Male',
     curriculum: 'CBC',
     gradeLevel: '',
     stream: '',
@@ -59,6 +60,7 @@ const StudentAdmissions = ({ user, onStudentAdmitted }) => {
       setStudentForm({
         admissionNumber: '',
         fullName: '',
+        gender: 'Male',
         curriculum: classes[0]?.curriculum || 'CBC',
         gradeLevel: classes[0]?.class_name || '',
         stream: streams[0]?.stream_name || '',
@@ -104,6 +106,19 @@ const StudentAdmissions = ({ user, onStudentAdmitted }) => {
               className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
               required
             />
+          </div>
+
+          <div>
+            <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Gender</label>
+            <select
+              value={studentForm.gender}
+              onChange={(e) => setStudentForm({ ...studentForm, gender: e.target.value })}
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
+              required
+            >
+              <option value="Male">Male (Boy)</option>
+              <option value="Female">Female (Girl)</option>
+            </select>
           </div>
 
           <div>
