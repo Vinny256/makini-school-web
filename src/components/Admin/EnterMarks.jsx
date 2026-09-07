@@ -19,14 +19,51 @@ const EnterMarks = ({ user }) => {
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedStream, setSelectedStream] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('');
+  const [maxMarks, setMaxMarks] = useState(100);
 
-  // Roster & Marks
+  // Learners Roster & Marks State: { [studentId]: { rawScore: '', percentage: null, rubric: '' } }
   const [roster, setRoster] = useState([]);
-  const [marks, setMarks] = useState({});
+  const [scores, setScores] = useState({});
   const [loading, setLoading] = useState(false);
+  const [savingSingleId, setSavingSingleId] = useState(null);
   const [fetchingRoster, setFetchingRoster] = useState(false);
 
-  // 1. Fetch Session Info & Exams
+  // Identify Curriculum Mode based on selected class
+  const isCbcClass = (className) => {
+    const clean = (className || '').toLowerCase();
+    return clean.includes('grade') || clean.includes('cbc') || clean.includes('pp');
+  };
+
+  // 1. Calculate Rubric / Letter Grade in real time
+  const evaluateScore = (raw, max, isCbc) => {
+    if (raw === '' || raw === null || isNaN(raw)) return { percentage: null, rubric: '', color: '' };
+    const numRaw = parseFloat(raw);
+    const numMax = parseFloat(max) || 100;
+    const pct = Math.round((numRaw / numMax) * 100);
+
+    if (isCbc) {
+      if (pct >= 80) return { percentage: pct, rubric: 'EE', label: 'Exceeding Expectation', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' };
+      if (pct >= 60) return { percentage: pct, rubric: 'ME', label: 'Meeting Expectation', color: 'bg-blue-100 text-blue-800 border-blue-300' };
+      if (pct >= 40) return { percentage: pct, rubric: 'AE', label: 'Approaching Expectation', color: 'bg-amber-100 text-amber-800 border-amber-300' };
+      return { percentage: pct, rubric: 'BE', label: 'Below Expectation', color: 'bg-rose-100 text-rose-800 border-rose-300' };
+    } else {
+      // 8-4-4 Standard Scale
+      if (pct >= 80) return { percentage: pct, rubric: 'A', label: 'A (Plain)', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' };
+      if (pct >= 75) return { percentage: pct, rubric: 'A-', label: 'A- (Minus)', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+      if (pct >= 70) return { percentage: pct, rubric: 'B+', label: 'B+ (Plus)', color: 'bg-cyan-100 text-cyan-800 border-cyan-300' };
+      if (pct >= 65) return { percentage: pct, rubric: 'B', label: 'B (Plain)', color: 'bg-cyan-50 text-cyan-700 border-cyan-200' };
+      if (pct >= 60) return { percentage: pct, rubric: 'B-', label: 'B- (Minus)', color: 'bg-sky-100 text-sky-800 border-sky-300' };
+      if (pct >= 55) return { percentage: pct, rubric: 'C+', label: 'C+ (Plus)', color: 'bg-blue-100 text-blue-800 border-blue-300' };
+      if (pct >= 50) return { percentage: pct, rubric: 'C', label: 'C (Plain)', color: 'bg-indigo-100 text-indigo-800 border-indigo-300' };
+      if (pct >= 45) return { percentage: pct, rubric: 'C-', label: 'C- (Minus)', color: 'bg-amber-50 text-amber-700 border-amber-200' };
+      if (pct >= 40) return { percentage: pct, rubric: 'D+', label: 'D+ (Plus)', color: 'bg-amber-100 text-amber-800 border-amber-300' };
+      if (pct >= 35) return { percentage: pct, rubric: 'D', label: 'D (Plain)', color: 'bg-orange-100 text-orange-800 border-orange-300' };
+      if (pct >= 30) return { percentage: pct, rubric: 'D-', label: 'D- (Minus)', color: 'bg-orange-200 text-orange-900 border-orange-400' };
+      return { percentage: pct, rubric: 'E', label: 'E', color: 'bg-rose-100 text-rose-800 border-rose-300' };
+    }
+  };
+
+  // 2. Fetch Session Info, Classes, Streams, and Subjects
   useEffect(() => {
     if (!user?.schoolId) return;
 
@@ -38,76 +75,181 @@ const EnterMarks = ({ user }) => {
         if (series.length > 0) setSelectedExam(series[0].exam_name);
       })
       .catch(() => {
-        const defaults = [{ id: 1, exam_name: 'Mid Term' }, { id: 2, exam_name: 'End Term' }];
-        setExamSeries(defaults);
-        setSelectedExam('Mid Term');
+        setExamSeries([{ id: 1, exam_name: 'Opener Exam' }, { id: 2, exam_name: 'Mid Term' }, { id: 3, exam_name: 'End Term' }]);
+        setSelectedExam('Opener Exam');
       });
 
-    // 2. Fetch Classes from /academics/classes
     API.get(`/academics/classes/${user.schoolId}`)
       .then(res => {
         const cls = res.data.classes || [];
         setClassList(cls);
         if (cls.length > 0) setSelectedClass(cls[0].class_name);
       })
-      .catch(err => console.error("Classes load error:", err));
+      .catch(err => console.error("Classes error:", err));
 
-    // 3. Fetch Streams from /academics/streams
     API.get(`/academics/streams/${user.schoolId}`)
       .then(res => {
         const stms = res.data.streams || [];
         setStreamList(stms);
         if (stms.length > 0) setSelectedStream(stms[0].stream_name);
       })
-      .catch(err => console.error("Streams load error:", err));
+      .catch(err => console.error("Streams error:", err));
 
-    // 4. Fetch Subjects from /academics/subjects
     API.get(`/academics/subjects/${user.schoolId}`)
       .then(res => {
         const subs = res.data.subjects || [];
         setSubjectList(subs);
         if (subs.length > 0) setSelectedSubject(subs[0].id);
       })
-      .catch(err => console.error("Subjects load error:", err));
+      .catch(err => console.error("Subjects error:", err));
   }, [user?.schoolId]);
 
-  // 5. Fetch Roster when class or stream changes
+  // 3. Fetch Roster and Existing Pre-Saved Marks for this combination
   useEffect(() => {
     if (selectedClass && selectedStream && user?.schoolId) {
       setFetchingRoster(true);
-      API.get(`/academics/roster/${user.schoolId}?gradeLevel=${encodeURIComponent(selectedClass)}&stream=${encodeURIComponent(selectedStream)}`)
-        .then(res => {
-          setRoster(res.data.students || []);
-          setMarks({});
+
+      const targetSub = subjectList.find(s => String(s.id) === String(selectedSubject));
+      const subName = targetSub ? targetSub.subject_name : '';
+
+      Promise.all([
+        API.get(`/academics/roster/${user.schoolId}?gradeLevel=${encodeURIComponent(selectedClass)}&stream=${encodeURIComponent(selectedStream)}`),
+        subName && selectedExam ? API.get(`/academics/marks-by-roster/${user.schoolId}?subjectName=${encodeURIComponent(subName)}&term=${encodeURIComponent(currentTerm.term_name)}&examType=${encodeURIComponent(selectedExam)}&year=${currentTerm.academic_year}`) : Promise.resolve({ data: { marksMap: {} } })
+      ])
+        .then(([rosterRes, marksRes]) => {
+          const students = rosterRes.data.students || [];
+          const existingMarks = marksRes.data.marksMap || {};
+          setRoster(students);
+
+          const cbcMode = isCbcClass(selectedClass);
+          const initialScores = {};
+
+          students.forEach(st => {
+            const saved = existingMarks[st.id];
+            if (saved) {
+              const evalObj = evaluateScore(saved.rawScore, saved.maxMarks || maxMarks, cbcMode);
+              initialScores[st.id] = {
+                rawScore: saved.rawScore,
+                percentage: evalObj.percentage,
+                rubric: evalObj.rubric,
+                color: evalObj.color,
+                label: evalObj.label,
+                isSaved: true
+              };
+            } else {
+              initialScores[st.id] = { rawScore: '', percentage: null, rubric: '', color: '', label: '', isSaved: false };
+            }
+          });
+
+          setScores(initialScores);
         })
         .catch(err => console.error("Roster fetch error:", err))
         .finally(() => setFetchingRoster(false));
     }
-  }, [selectedClass, selectedStream, user?.schoolId]);
+  }, [selectedClass, selectedStream, selectedSubject, selectedExam, user?.schoolId, subjectList, currentTerm]);
 
-  const handleScoreChange = (studentId, value) => {
-    setMarks(prev => ({ ...prev, [studentId]: value }));
+  // Handle Input Score Change
+  const handleScoreChange = (studentId, rawValue) => {
+    const cbcMode = isCbcClass(selectedClass);
+    const evalObj = evaluateScore(rawValue, maxMarks, cbcMode);
+
+    setScores(prev => ({
+      ...prev,
+      [studentId]: {
+        rawScore: rawValue,
+        percentage: evalObj.percentage,
+        rubric: evalObj.rubric,
+        color: evalObj.color,
+        label: evalObj.label,
+        isSaved: false
+      }
+    }));
   };
 
-  const handleSaveAllMarks = async (e) => {
-    e.preventDefault();
-    if (!selectedExam) return toast.error("Please select an exam series.");
-    if (!selectedSubject) return toast.error("Please select a subject.");
+  // Re-calculate percentages if "Max Marks" is altered
+  const handleMaxMarksChange = (newMax) => {
+    setMaxMarks(newMax);
+    const cbcMode = isCbcClass(selectedClass);
+    setScores(prev => {
+      const updated = { ...prev };
+      Object.keys(updated).forEach(id => {
+        if (updated[id]?.rawScore !== '') {
+          const evalObj = evaluateScore(updated[id].rawScore, newMax, cbcMode);
+          updated[id] = { ...updated[id], ...evalObj, isSaved: false };
+        }
+      });
+      return updated;
+    });
+  };
 
-    setLoading(true);
+  // Quick Single Row Save (or update)
+  const handleSaveSingle = async (studentId) => {
+    const studentScore = scores[studentId];
+    if (!studentScore || studentScore.rawScore === '') return toast.error("Enter a valid mark first.");
+    if (parseFloat(studentScore.rawScore) > parseFloat(maxMarks)) {
+      return toast.error(`Mark cannot exceed maximum of ${maxMarks}`);
+    }
+
+    setSavingSingleId(studentId);
     try {
-      const matchedStream = streamList.find(s => s.stream_name.toLowerCase() === selectedStream.toLowerCase());
-
       await API.post('/academics/record-batch', {
         schoolId: user.schoolId,
         term: currentTerm?.term_name || 'Term 1',
         examType: selectedExam,
         subjectId: selectedSubject,
-        gradeLevel: selectedClass,
-        streamId: matchedStream?.id || null,
-        marks
+        maxMarks,
+        entries: [{
+          studentId,
+          rawScore: studentScore.rawScore,
+          rubric: studentScore.rubric
+        }]
       });
-      toast.success("Scores recorded successfully!");
+      toast.success("Mark updated!");
+      setScores(prev => ({
+        ...prev,
+        [studentId]: { ...prev[studentId], isSaved: true }
+      }));
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to save mark.");
+    } finally {
+      setSavingSingleId(null);
+    }
+  };
+
+  // Batch Save all Roster Marks
+  const handleSaveAllMarks = async (e) => {
+    e.preventDefault();
+    if (!selectedExam) return toast.error("Please select an exam series.");
+    if (!selectedSubject) return toast.error("Please select a subject.");
+
+    const entries = Object.keys(scores)
+      .filter(id => scores[id].rawScore !== '')
+      .map(id => ({
+        studentId: id,
+        rawScore: scores[id].rawScore,
+        rubric: scores[id].rubric
+      }));
+
+    if (entries.length === 0) return toast.error("No marks entered to commit.");
+
+    setLoading(true);
+    try {
+      await API.post('/academics/record-batch', {
+        schoolId: user.schoolId,
+        term: currentTerm?.term_name || 'Term 1',
+        examType: selectedExam,
+        subjectId: selectedSubject,
+        maxMarks,
+        entries
+      });
+      toast.success("All marks and evaluation rubrics saved!");
+      setScores(prev => {
+        const savedMap = { ...prev };
+        entries.forEach(e => {
+          if (savedMap[e.studentId]) savedMap[e.studentId].isSaved = true;
+        });
+        return savedMap;
+      });
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to commit marks.");
     } finally {
@@ -120,23 +262,23 @@ const EnterMarks = ({ user }) => {
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-slate-100 pb-4">
         <div>
           <h2 className="text-lg font-black uppercase tracking-tight text-slate-800">
-            Grading & Marks Entry
+            Grading & Assessment Hub
           </h2>
           <p className="text-xs text-slate-500 font-semibold mt-0.5">
-            Academic Session: {currentTerm?.academic_year} — {currentTerm?.term_name}
+            Academic Session: {currentTerm?.academic_year} — {currentTerm?.term_name} | Framework: {isCbcClass(selectedClass) ? 'CBC Competency Grading' : '8-4-4 Standard Scale'}
           </p>
         </div>
         {isAdmin && (
           <span className="self-start sm:self-auto px-3 py-1 bg-purple-50 text-purple-700 border border-purple-200 rounded-xl text-[10px] font-black uppercase tracking-wider">
-            Executive / All Access
+            Executive / Full Access
           </span>
         )}
       </div>
 
-      {/* WORKSPACE SELECTORS */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+      {/* FILTER & CONFIGURATION HEADER */}
+      <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
         <div>
-          <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Class</label>
+          <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Class Level</label>
           <select
             value={selectedClass}
             onChange={(e) => setSelectedClass(e.target.value)}
@@ -186,12 +328,25 @@ const EnterMarks = ({ user }) => {
             ))}
           </select>
         </div>
+
+        <div>
+          <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Marks Out Of (/)</label>
+          <input
+            type="number"
+            min="1"
+            max="1000"
+            value={maxMarks}
+            onChange={(e) => handleMaxMarksChange(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-50 border border-blue-400 rounded-xl text-sm font-bold text-blue-700 outline-none focus:bg-white"
+            placeholder="e.g. 30, 50, 100"
+          />
+        </div>
       </div>
 
-      {/* ROSTER TABLE */}
+      {/* ROSTER MARKS TABLE */}
       {fetchingRoster ? (
         <div className="p-8 text-center text-slate-400 text-xs font-bold uppercase tracking-wider">
-          Loading Class Roster...
+          Loading Class Roster & Existing Marks...
         </div>
       ) : roster.length > 0 ? (
         <form onSubmit={handleSaveAllMarks} className="space-y-4">
@@ -201,43 +356,95 @@ const EnterMarks = ({ user }) => {
                 <tr>
                   <th className="p-4">Adm No.</th>
                   <th className="p-4">Learner Name</th>
-                  <th className="p-4 w-48 text-right">Score / Evaluation</th>
+                  <th className="p-4 text-center">Score (/{maxMarks})</th>
+                  <th className="p-4 text-center">Normalized (%)</th>
+                  <th className="p-4 text-center">{isCbcClass(selectedClass) ? 'CBC Rubric' : '8-4-4 Grade'}</th>
+                  <th className="p-4 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm font-medium">
-                {roster.map(student => (
-                  <tr key={student.id} className="hover:bg-slate-50/70">
-                    <td className="p-4 font-mono font-bold text-blue-600">{student.admission_number}</td>
-                    <td className="p-4 text-slate-900 font-semibold">{student.full_name}</td>
-                    <td className="p-4 text-right">
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        placeholder="%"
-                        value={marks[student.id] || ''}
-                        onChange={(e) => handleScoreChange(student.id, e.target.value)}
-                        className="w-24 px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-right font-mono font-bold outline-none focus:border-blue-600"
-                        required
-                      />
-                    </td>
-                  </tr>
-                ))}
+                {roster.map(student => {
+                  const studentData = scores[student.id] || { rawScore: '', percentage: null, rubric: '', color: '', isSaved: false };
+
+                  return (
+                    <tr key={student.id} className="hover:bg-slate-50/70">
+                      <td className="p-4 font-mono font-bold text-blue-600">{student.admission_number}</td>
+                      <td className="p-4 text-slate-900 font-semibold">{student.full_name}</td>
+
+                      {/* RAW SCORE INPUT */}
+                      <td className="p-4 text-center">
+                        <input
+                          type="number"
+                          min="0"
+                          max={maxMarks}
+                          step="0.5"
+                          placeholder={`0-${maxMarks}`}
+                          value={studentData.rawScore}
+                          onChange={(e) => handleScoreChange(student.id, e.target.value)}
+                          className="w-24 px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-center font-mono font-bold outline-none focus:border-blue-600 focus:bg-white"
+                        />
+                      </td>
+
+                      {/* COMPUTED PERCENTAGE */}
+                      <td className="p-4 text-center font-mono font-bold text-slate-700">
+                        {studentData.percentage !== null ? `${studentData.percentage}%` : '—'}
+                      </td>
+
+                      {/* DYNAMIC RUBRIC / GRADE BADGE */}
+                      <td className="p-4 text-center">
+                        {studentData.rubric ? (
+                          <span
+                            className={`inline-block px-3 py-1 rounded-xl text-xs font-black border ${studentData.color}`}
+                            title={studentData.label}
+                          >
+                            {studentData.rubric}
+                            <span className="hidden md:inline ml-1 font-semibold text-[10px]">
+                              ({studentData.label})
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-slate-300 text-xs font-bold">—</span>
+                        )}
+                      </td>
+
+                      {/* ROW ACTION / STATUS */}
+                      <td className="p-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleSaveSingle(student.id)}
+                          disabled={savingSingleId === student.id}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase transition ${
+                            studentData.isSaved
+                              ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                              : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
+                          }`}
+                        >
+                          {savingSingleId === student.id ? 'Saving...' : studentData.isSaved ? 'Saved ✓' : 'Save / Update'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest rounded-xl transition shadow-lg shadow-blue-600/20 disabled:opacity-50"
-          >
-            {loading ? 'Committing Scores...' : 'Commit Marks For Stream'}
-          </button>
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-2">
+            <p className="text-xs text-slate-400 font-semibold">
+              * Click <strong>Save / Update</strong> per student, or commit the entire stream simultaneously below.
+            </p>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full sm:w-auto px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest rounded-xl transition shadow-lg shadow-blue-600/20 disabled:opacity-50"
+            >
+              {loading ? 'Committing Stream Scores...' : 'Commit All Marks For Stream'}
+            </button>
+          </div>
         </form>
       ) : (
         <div className="p-8 text-center text-slate-400 text-xs font-bold border-2 border-dashed border-slate-100 rounded-2xl">
-          No learners found registered in {selectedClass || 'this class'} ({selectedStream || 'this stream'}).
+          No learners found registered in {selectedClass} ({selectedStream}).
         </div>
       )}
     </div>
