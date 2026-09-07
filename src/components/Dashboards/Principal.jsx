@@ -5,6 +5,7 @@ import { toast } from 'react-hot-toast';
 const Principal = ({ user }) => {
   const [stats, setStats] = useState({ staff: 0, students: 0, meanGrade: '0.0' });
   const [activeTab, setActiveTab] = useState('Staff Management');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   // Staff Management states
@@ -52,7 +53,7 @@ const Principal = ({ user }) => {
     }
   }, [user?.schoolId]);
 
-  // Handle register new staff (Name + Role only)
+  // Register new staff member (Name + Role only)
   const handleRegisterStaff = async (e) => {
     e.preventDefault();
     if (!staffForm.fullName.trim()) {
@@ -112,12 +113,55 @@ const Principal = ({ user }) => {
     window.location.href = '/';
   };
 
+  const switchTab = (tabName) => {
+    setActiveTab(tabName);
+    setIsSidebarOpen(false);
+  };
+
   return (
-    <div className="flex w-full min-h-screen bg-slate-50 font-sans text-slate-900">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col md:flex-row w-full overflow-x-hidden">
       
-      {/* PERSISTENT SIDEBAR */}
-      <aside className="w-72 min-w-[18rem] bg-slate-900 text-white flex flex-col p-6 h-screen sticky top-0 shrink-0 shadow-2xl z-30">
-        <div className="mb-8 text-center">
+      {/* MOBILE TOP BAR */}
+      <div className="md:hidden bg-slate-900 text-white px-5 py-4 flex justify-between items-center sticky top-0 z-50 shadow-md">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-sm shadow-md">
+            <i className="fas fa-university text-white"></i>
+          </div>
+          <div>
+            <h2 className="text-sm font-black italic uppercase tracking-tight leading-none">
+              Executive <span className="text-blue-500">Portal</span>
+            </h2>
+            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
+              {user?.schoolName || 'School System'}
+            </p>
+          </div>
+        </div>
+
+        <button 
+          type="button"
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="w-10 h-10 flex items-center justify-center bg-slate-800 rounded-xl text-blue-400 active:scale-95 transition"
+        >
+          <i className={`fas ${isSidebarOpen ? 'fa-times' : 'fa-bars'} text-lg`}></i>
+        </button>
+      </div>
+
+      {/* MOBILE BACKDROP OVERLAY */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-40 md:hidden transition-opacity"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* COMMAND CENTER SIDEBAR */}
+      <aside className={`
+        fixed top-0 bottom-0 left-0 w-72 bg-slate-900 text-white flex flex-col p-6 h-screen z-50 transition-transform duration-300 ease-in-out shadow-2xl
+        md:sticky md:top-0 md:translate-x-0 md:shadow-none md:shrink-0
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        {/* DESKTOP BRANDING */}
+        <div className="hidden md:block mb-8 text-center">
           <div className="w-14 h-14 bg-blue-600 rounded-2xl mx-auto flex items-center justify-center mb-3 shadow-lg shadow-blue-500/30">
             <i className="fas fa-university text-2xl"></i>
           </div>
@@ -129,12 +173,13 @@ const Principal = ({ user }) => {
           </p>
         </div>
 
+        {/* NAVIGATION LINKS */}
         <nav className="flex-1 space-y-2 overflow-y-auto pr-1">
           <p className="text-slate-500 text-[10px] font-black uppercase mb-3 ml-2 tracking-widest">Main Menu</p>
           
           <button 
             type="button"
-            onClick={() => setActiveTab('Overview')}
+            onClick={() => switchTab('Overview')}
             className={`flex items-center gap-3 w-full p-3.5 rounded-xl font-bold text-sm transition-all ${
               activeTab === 'Overview' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-800'
             }`}
@@ -144,7 +189,7 @@ const Principal = ({ user }) => {
 
           <button 
             type="button"
-            onClick={() => setActiveTab('Staff Management')}
+            onClick={() => switchTab('Staff Management')}
             className={`flex items-center gap-3 w-full p-3.5 rounded-xl font-bold text-sm transition-all ${
               activeTab === 'Staff Management' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-800'
             }`}
@@ -154,7 +199,7 @@ const Principal = ({ user }) => {
 
           <button 
             type="button"
-            onClick={() => setActiveTab('Bulk SMS Hub')}
+            onClick={() => switchTab('Bulk SMS Hub')}
             className={`flex items-center gap-3 w-full p-3.5 rounded-xl font-bold text-sm transition-all ${
               activeTab === 'Bulk SMS Hub' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-800'
             }`}
@@ -163,8 +208,8 @@ const Principal = ({ user }) => {
           </button>
         </nav>
 
-        {/* LOGOUT */}
-        <div className="pt-4 border-t border-slate-800">
+        {/* LOGOUT BUTTON */}
+        <div className="pt-4 border-t border-slate-800 mt-auto">
           {!showExitConfirm ? (
             <button 
               type="button"
@@ -174,7 +219,7 @@ const Principal = ({ user }) => {
               <i className="fas fa-sign-out-alt w-5"></i> Exit Portal
             </button>
           ) : (
-            <div className="p-3 bg-slate-800 rounded-xl border border-slate-700">
+            <div className="p-3 bg-slate-800 rounded-xl border border-slate-700 animate-in fade-in">
               <p className="text-[10px] font-black uppercase text-center mb-2 text-slate-400">Confirm Exit?</p>
               <div className="flex gap-2">
                 <button 
@@ -197,14 +242,14 @@ const Principal = ({ user }) => {
         </div>
       </aside>
 
-      {/* MAIN CONTENT AREA */}
-      <main className="flex-1 p-6 md:p-10 min-w-0 overflow-y-auto">
-        <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+      {/* MAIN CONTENT WORKSPACE */}
+      <main className="flex-1 min-w-0 p-4 sm:p-6 md:p-10 overflow-y-auto">
+        <header className="mb-6 md:mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
           <div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight italic uppercase">
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight italic uppercase">
               {activeTab}
             </h1>
-            <p className="text-slate-500 font-bold uppercase text-xs tracking-widest mt-1">
+            <p className="text-slate-500 font-bold uppercase text-[11px] tracking-wider mt-0.5">
               Principal: {user?.fullName || user?.name} | {user?.schoolName}
             </p>
           </div>
@@ -212,16 +257,16 @@ const Principal = ({ user }) => {
 
         {/* OVERVIEW TAB */}
         {activeTab === 'Overview' && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 animate-in fade-in duration-300">
+            <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-sm">
               <p className="text-xs font-black uppercase text-slate-400">Total Staff</p>
               <h2 className="text-2xl font-black text-slate-800 mt-1">{stats.staff}</h2>
             </div>
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-sm">
               <p className="text-xs font-black uppercase text-slate-400">Total Students</p>
               <h2 className="text-2xl font-black text-slate-800 mt-1">{stats.students}</h2>
             </div>
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-sm">
               <p className="text-xs font-black uppercase text-slate-400">School Mean</p>
               <h2 className="text-2xl font-black text-slate-800 mt-1">{stats.meanGrade}</h2>
             </div>
@@ -230,28 +275,28 @@ const Principal = ({ user }) => {
 
         {/* STAFF MANAGEMENT TAB */}
         {activeTab === 'Staff Management' && (
-          <div className="space-y-8 animate-in fade-in duration-300">
+          <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300">
             
             {/* ADD PERSONNEL CARD */}
-            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
-              <h3 className="text-xs font-black tracking-wider uppercase text-slate-400 mb-6">
+            <div className="bg-white p-5 sm:p-8 rounded-3xl border border-slate-200 shadow-sm">
+              <h3 className="text-xs font-black tracking-wider uppercase text-slate-400 mb-4 sm:mb-6">
                 Add New Personnel
               </h3>
 
-              <form onSubmit={handleRegisterStaff} className="flex flex-col md:flex-row items-stretch md:items-center gap-4">
+              <form onSubmit={handleRegisterStaff} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
                 <input
                   type="text"
                   placeholder="Full Name (e.g. Mary Wanjiku)"
                   value={staffForm.fullName}
                   onChange={(e) => setStaffForm({ ...staffForm, fullName: e.target.value })}
-                  className="flex-1 px-5 py-4 bg-slate-50 border border-slate-300 rounded-2xl text-slate-800 text-sm font-semibold outline-none focus:border-blue-600 focus:bg-white transition"
+                  className="flex-1 px-4 sm:px-5 py-3.5 sm:py-4 bg-slate-50 border border-slate-300 rounded-2xl text-slate-800 text-sm font-semibold outline-none focus:border-blue-600 focus:bg-white transition"
                   required
                 />
 
                 <select
                   value={staffForm.role}
                   onChange={(e) => setStaffForm({ ...staffForm, role: e.target.value })}
-                  className="w-full md:w-56 px-5 py-4 bg-slate-50 border border-slate-300 rounded-2xl text-slate-700 text-sm font-semibold outline-none focus:border-blue-600 focus:bg-white transition"
+                  className="w-full sm:w-56 px-4 sm:px-5 py-3.5 sm:py-4 bg-slate-50 border border-slate-300 rounded-2xl text-slate-700 text-sm font-semibold outline-none focus:border-blue-600 focus:bg-white transition"
                 >
                   <option value="Teacher">Teacher</option>
                   <option value="Deputy Principal">Deputy Principal</option>
@@ -266,7 +311,7 @@ const Principal = ({ user }) => {
                 <button
                   type="submit"
                   disabled={loadingStaff}
-                  className="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-black text-xs uppercase tracking-widest px-8 py-4 rounded-2xl shadow-lg shadow-blue-600/20 transition-all disabled:opacity-50 min-w-[170px]"
+                  className="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-black text-xs uppercase tracking-widest px-6 sm:px-8 py-3.5 sm:py-4 rounded-2xl shadow-lg shadow-blue-600/20 transition-all disabled:opacity-50"
                 >
                   {loadingStaff ? 'Generating...' : 'Register Staff'}
                 </button>
@@ -275,48 +320,50 @@ const Principal = ({ user }) => {
 
             {/* STAFF DIRECTORY TABLE */}
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+              <div className="p-4 sm:p-6 border-b border-slate-100 flex justify-between items-center">
                 <div>
-                  <h4 className="font-black text-slate-800 uppercase tracking-tight">Active Faculty & Staff</h4>
-                  <p className="text-xs text-slate-400 font-semibold mt-0.5">
-                    Access credentials auto-generated using school initials
+                  <h4 className="font-black text-slate-800 uppercase tracking-tight text-sm sm:text-base">
+                    Active Faculty & Staff
+                  </h4>
+                  <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
+                    Credentials auto-generated via school initials
                   </p>
                 </div>
-                <span className="text-xs font-black bg-blue-50 text-blue-600 px-3.5 py-1.5 rounded-xl border border-blue-100">
+                <span className="text-xs font-black bg-blue-50 text-blue-600 px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-xl border border-blue-100">
                   {staffList.length} Personnel
                 </span>
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="bg-slate-50 text-slate-400 text-[11px] font-black uppercase tracking-wider border-b border-slate-100">
+                <table className="w-full text-left min-w-[550px]">
+                  <thead className="bg-slate-50 text-slate-400 text-[10px] sm:text-[11px] font-black uppercase tracking-wider border-b border-slate-100">
                     <tr>
-                      <th className="p-5">Member Name</th>
-                      <th className="p-5">Designation</th>
-                      <th className="p-5">Staff Login Code</th>
-                      <th className="p-5">Access Key</th>
-                      <th className="p-5 text-right">Actions</th>
+                      <th className="p-4 sm:p-5">Member Name</th>
+                      <th className="p-4 sm:p-5">Designation</th>
+                      <th className="p-4 sm:p-5">Staff Login Code</th>
+                      <th className="p-4 sm:p-5">Access Key</th>
+                      <th className="p-4 sm:p-5 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
                     {fetchingStaff ? (
                       <tr>
-                        <td colSpan="5" className="p-8 text-center text-slate-400 text-xs font-bold uppercase tracking-wider">
+                        <td colSpan="5" className="p-6 text-center text-slate-400 text-xs font-bold uppercase tracking-wider">
                           Loading Staff Directory...
                         </td>
                       </tr>
                     ) : staffList.length === 0 ? (
                       <tr>
-                        <td colSpan="5" className="p-8 text-center text-slate-400 text-xs font-bold uppercase tracking-wider">
+                        <td colSpan="5" className="p-6 text-center text-slate-400 text-xs font-bold uppercase tracking-wider">
                           No staff members registered yet.
                         </td>
                       </tr>
                     ) : (
                       staffList.map((member) => (
                         <tr key={member.id} className="hover:bg-slate-50/70 transition">
-                          <td className="p-5 font-bold text-slate-900">{member.full_name}</td>
-                          <td className="p-5">
-                            <span className={`px-3 py-1 rounded-xl text-xs font-bold ${
+                          <td className="p-4 sm:p-5 font-bold text-slate-900">{member.full_name}</td>
+                          <td className="p-4 sm:p-5">
+                            <span className={`px-2.5 py-1 rounded-xl text-xs font-bold ${
                               member.role === 'Principal'
                                 ? 'bg-purple-100 text-purple-700'
                                 : member.role === 'Secretary'
@@ -328,13 +375,13 @@ const Principal = ({ user }) => {
                               {member.role}
                             </span>
                           </td>
-                          <td className="p-5 font-mono font-bold text-blue-600">
+                          <td className="p-4 sm:p-5 font-mono font-bold text-blue-600">
                             {member.staff_code || member.vinnie_digital_code || '—'}
                           </td>
-                          <td className="p-5 font-mono font-bold text-emerald-600">
+                          <td className="p-4 sm:p-5 font-mono font-bold text-emerald-600">
                             {member.password || member.access_key || '••••••••'}
                           </td>
-                          <td className="p-5 text-right">
+                          <td className="p-4 sm:p-5 text-right">
                             <button
                               type="button"
                               onClick={() => copyCredentials(
@@ -342,9 +389,9 @@ const Principal = ({ user }) => {
                                 member.password || member.access_key,
                                 member.full_name
                               )}
-                              className="bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition border border-slate-200"
+                              className="bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-black uppercase tracking-wider transition border border-slate-200"
                             >
-                              <i className="fas fa-copy mr-1.5"></i> Copy Credentials
+                              <i className="fas fa-copy mr-1"></i> Copy
                             </button>
                           </td>
                         </tr>
@@ -360,11 +407,11 @@ const Principal = ({ user }) => {
 
         {/* BULK SMS TAB */}
         {activeTab === 'Bulk SMS Hub' && (
-          <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm max-w-2xl animate-in fade-in duration-300">
-            <h2 className="text-lg font-black uppercase text-slate-800 tracking-tight mb-2">
+          <div className="bg-white p-5 sm:p-8 rounded-3xl border border-slate-200 shadow-sm max-w-2xl animate-in fade-in duration-300">
+            <h2 className="text-base sm:text-lg font-black uppercase text-slate-800 tracking-tight mb-1 sm:mb-2">
               Broadcast Communications Engine
             </h2>
-            <p className="text-xs text-slate-500 mb-6 font-medium">
+            <p className="text-xs text-slate-500 mb-4 sm:mb-6 font-medium">
               Dispatch official SMS announcements directly to guardians, staff, or sponsors.
             </p>
 
@@ -402,7 +449,7 @@ const Principal = ({ user }) => {
               <button
                 type="submit"
                 disabled={isSendingSms}
-                className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest rounded-xl transition shadow-lg shadow-blue-600/20 disabled:opacity-50"
+                className="w-full py-3.5 sm:py-4 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest rounded-xl transition shadow-lg shadow-blue-600/20 disabled:opacity-50"
               >
                 {isSendingSms ? 'Transmitting SMS...' : 'Dispatch Broadcast SMS'}
               </button>
