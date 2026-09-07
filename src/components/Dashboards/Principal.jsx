@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import API from '../../api';
 import { toast } from 'react-hot-toast';
+import EnterMarks from '../Admin/EnterMarks';
 
 const Principal = ({ user }) => {
   const [activeTab, setActiveTab] = useState('Overview');
@@ -15,9 +16,10 @@ const Principal = ({ user }) => {
     distribution: { boarding: 0, day: 0 } 
   });
 
-  // Stream Management State
-  const [streams, setStreams] = useState(['East', 'West', 'North', 'South']);
+  // Stream Management State (Loaded Dynamically)
+  const [streams, setStreams] = useState([]);
   const [newStreamInput, setNewStreamInput] = useState('');
+  const [loadingStream, setLoadingStream] = useState(false);
 
   // Staff Management State
   const [staffList, setStaffList] = useState([]);
@@ -32,7 +34,7 @@ const Principal = ({ user }) => {
     fullName: '',
     curriculum: 'CBC (Junior/Senior)',
     gradeLevel: 'Grade 9',
-    stream: 'East',
+    stream: '',
     upiNumber: '',
     guardianName: '',
     guardianPhone: '',
@@ -40,16 +42,9 @@ const Principal = ({ user }) => {
   });
   const [loadingStudent, setLoadingStudent] = useState(false);
 
-  // Marks Entry State (Supports numeric & CBC Rubrics)
-  const [markForm, setMarkForm] = useState({
-    admissionNumber: '',
-    curriculumSystem: 'CBC',
-    subject: 'Integrated Science',
-    assessmentSeries: 'End Term',
-    score: '',
-    cbcRubric: 'ME - Meeting Expectation'
-  });
-  const [loadingMark, setLoadingMark] = useState(false);
+  // Bulk SMS State
+  const [smsData, setSmsData] = useState({ targetGroup: 'All Parents', message: '' });
+  const [isSendingSms, setIsSendingSms] = useState(false);
 
   // Fetch Institutional Metrics
   const fetchStats = async () => {
@@ -64,7 +59,22 @@ const Principal = ({ user }) => {
         });
       }
     } catch (err) {
-      console.error(err);
+      console.error("Stats fetch error:", err);
+    }
+  };
+
+  // Fetch Dynamic Streams from Database
+  const fetchStreams = async () => {
+    try {
+      const res = await API.get(`/academics/streams/${user.schoolId}`);
+      if (res.data.success) {
+        setStreams(res.data.streams || []);
+        if (res.data.streams.length > 0 && !studentForm.stream) {
+          setStudentForm(prev => ({ ...prev, stream: res.data.streams[0].stream_name }));
+        }
+      }
+    } catch (err) {
+      console.error("Streams fetch error:", err);
     }
   };
 
@@ -73,7 +83,7 @@ const Principal = ({ user }) => {
     try {
       setFetchingStaff(true);
       const res = await API.get(`/staff/school/${user.schoolId}`);
-      setStaffList(res.data);
+      setStaffList(res.data || []);
     } catch (err) {
       toast.error("Failed to load staff directory");
     } finally {
@@ -85,35 +95,59 @@ const Principal = ({ user }) => {
   const fetchStudents = async () => {
     try {
       const res = await API.get(`/students/school/${user.schoolId}`);
-      if (res.data.success) setStudents(res.data.students);
+      if (res.data.success) setStudents(res.data.students || []);
     } catch (err) {
-      console.error(err);
+      console.error("Students fetch error:", err);
     }
   };
 
   useEffect(() => {
     if (user?.schoolId) {
       fetchStats();
+      fetchStreams();
       fetchStaff();
       fetchStudents();
     }
   }, [user?.schoolId]);
 
-  // Handler: Add Custom Stream
-  const handleAddStream = (e) => {
+  // Handler: Add Stream to Database
+  const handleAddStream = async (e) => {
     e.preventDefault();
-    const trimmed = newStreamInput.trim();
-    if (!trimmed) return;
-    if (streams.includes(trimmed)) return toast.error("Stream already registered!");
-    setStreams([...streams, trimmed]);
-    setNewStreamInput('');
-    toast.success(`Stream "${trimmed}" activated.`);
+    const cleanStream = newStreamInput.trim();
+    if (!cleanStream) return;
+
+    setLoadingStream(true);
+    try {
+      const res = await API.post('/academics/streams', {
+        schoolId: user.schoolId,
+        streamName: cleanStream
+      });
+      toast.success(res.data.message || `Stream "${cleanStream}" registered!`);
+      setNewStreamInput('');
+      fetchStreams();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to create stream");
+    } finally {
+      setLoadingStream(false);
+    }
+  };
+
+  // Handler: Delete Stream
+  const handleDeleteStream = async (streamId, streamName) => {
+    if (!window.confirm(`Delete stream "${streamName}"?`)) return;
+    try {
+      await API.delete(`/academics/streams/${streamId}`);
+      toast.success(`Stream "${streamName}" deleted`);
+      fetchStreams();
+    } catch (err) {
+      toast.error("Failed to delete stream");
+    }
   };
 
   // Handler: Register Staff Member
   const handleRegisterStaff = async (e) => {
     e.preventDefault();
-    if (!staffForm.fullName.trim()) return toast.error("Enter staff member's full name");
+    if (!staffForm.fullName.trim()) return toast.error("Enter staff full name");
 
     setLoadingStaff(true);
     try {
@@ -140,6 +174,10 @@ const Principal = ({ user }) => {
   // Handler: Admit Student
   const handleAdmitStudent = async (e) => {
     e.preventDefault();
+    if (!studentForm.stream) {
+      return toast.error("Please add and select a stream first.");
+    }
+
     setLoadingStudent(true);
     try {
       const res = await API.post('/students/register', {
@@ -152,7 +190,7 @@ const Principal = ({ user }) => {
         fullName: '',
         curriculum: studentForm.curriculum,
         gradeLevel: studentForm.gradeLevel,
-        stream: streams[0] || 'East',
+        stream: streams[0]?.stream_name || '',
         upiNumber: '',
         guardianName: '',
         guardianPhone: '',
@@ -167,34 +205,51 @@ const Principal = ({ user }) => {
     }
   };
 
-  // Handler: Commit Assessment / Exam Marks
-  const handleRecordMark = async (e) => {
+  // Handler: Send Bulk SMS
+  const handleSendSMS = async (e) => {
     e.preventDefault();
-    setLoadingMark(true);
+    if (!smsData.message.trim()) return toast.error("Please enter a notice message.");
+
+    setIsSendingSms(true);
     try {
-      await API.post('/admin/academics/record-mark', {
+      await API.post('/admin/communications/bulk-sms', {
         schoolId: user.schoolId,
-        ...markForm
+        ...smsData
       });
-      toast.success(`Assessment score saved for Adm: ${markForm.admissionNumber}`);
-      setMarkForm({ ...markForm, admissionNumber: '', score: '' });
-      fetchStats();
+      toast.success("Broadcast dispatched successfully!");
+      setSmsData({ ...smsData, message: '' });
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to commit assessment");
+      toast.error(err.response?.data?.message || "Failed to dispatch SMS.");
     } finally {
-      setLoadingMark(false);
+      setIsSendingSms(false);
     }
   };
 
   const copyCredentials = (code, pass, name) => {
     navigator.clipboard.writeText(`Staff: ${name}\nLogin Code: ${code}\nAccess Key: ${pass}`);
-    toast.success(`Copied login details for ${name}`);
+    toast.success(`Copied credentials for ${name}`);
   };
 
   const switchTab = (tab) => {
     setActiveTab(tab);
     setIsSidebarOpen(false);
   };
+
+  // Helper renderer for unfinished modules
+  const renderComingSoon = (title, description, icon) => (
+    <div className="bg-white p-8 sm:p-12 rounded-3xl border border-slate-200 shadow-sm text-center max-w-xl mx-auto my-6 animate-in fade-in duration-300">
+      <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl mx-auto flex items-center justify-center text-2xl mb-4 border border-blue-100">
+        <i className={`fas ${icon}`}></i>
+      </div>
+      <span className="inline-block px-3 py-1 bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-black uppercase rounded-full tracking-wider mb-2">
+        Updating Soon
+      </span>
+      <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">{title}</h2>
+      <p className="text-xs text-slate-500 font-medium mt-2 leading-relaxed max-w-md mx-auto">
+        {description}
+      </p>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col md:flex-row w-full overflow-x-hidden">
@@ -250,8 +305,8 @@ const Principal = ({ user }) => {
           </p>
         </div>
 
-        <nav className="flex-1 space-y-1.5 overflow-y-auto pr-1">
-          <p className="text-slate-500 text-[10px] font-black uppercase mb-3 ml-2 tracking-widest">Master Menu</p>
+        <nav className="flex-1 space-y-1 overflow-y-auto pr-1">
+          <p className="text-slate-500 text-[10px] font-black uppercase mb-2 ml-2 tracking-widest">Active Modules</p>
           
           <button 
             type="button"
@@ -290,7 +345,17 @@ const Principal = ({ user }) => {
               activeTab === 'Student Admissions' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-800'
             }`}
           >
-            <i className="fas fa-user-plus w-5"></i> <span>Admissions (CBC & 844)</span>
+            <i className="fas fa-user-plus w-5"></i> <span>Admissions (CBC/844)</span>
+          </button>
+
+          <button 
+            type="button"
+            onClick={() => switchTab('Students')}
+            className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-sm transition-all ${
+              activeTab === 'Students' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-800'
+            }`}
+          >
+            <i className="fas fa-user-graduate w-5"></i> <span>Learners Directory</span>
           </button>
 
           <button 
@@ -300,10 +365,103 @@ const Principal = ({ user }) => {
               activeTab === 'Enter Marks' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-800'
             }`}
           >
-            <i className="fas fa-marker w-5"></i> <span>Marks & CBC Rubrics</span>
+            <i className="fas fa-marker w-5"></i> <span>Marks & CBC Grading</span>
+          </button>
+
+          <button 
+            type="button"
+            onClick={() => switchTab('Bulk SMS Hub')}
+            className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-sm transition-all ${
+              activeTab === 'Bulk SMS Hub' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-800'
+            }`}
+          >
+            <i className="fas fa-bullhorn w-5"></i> <span>Bulk SMS Hub</span>
+          </button>
+
+          <p className="text-slate-500 text-[10px] font-black uppercase pt-4 mb-2 ml-2 tracking-widest">Institutional Desks</p>
+
+          <button 
+            type="button"
+            onClick={() => switchTab('Exam Analysis')}
+            className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-sm transition-all ${
+              activeTab === 'Exam Analysis' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-800'
+            }`}
+          >
+            <i className="fas fa-file-alt w-5"></i> <span>Exam Analysis</span>
+          </button>
+
+          <button 
+            type="button"
+            onClick={() => switchTab('Fee Operations')}
+            className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-sm transition-all ${
+              activeTab === 'Fee Operations' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-800'
+            }`}
+          >
+            <i className="fas fa-receipt w-5"></i> <span>Fee Ledger</span>
+          </button>
+
+          <button 
+            type="button"
+            onClick={() => switchTab('Attendance')}
+            className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-sm transition-all ${
+              activeTab === 'Attendance' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-800'
+            }`}
+          >
+            <i className="fas fa-clipboard-check w-5"></i> <span>Roll Call & Attendance</span>
+          </button>
+
+          <button 
+            type="button"
+            onClick={() => switchTab('Discipline')}
+            className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-sm transition-all ${
+              activeTab === 'Discipline' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-800'
+            }`}
+          >
+            <i className="fas fa-gavel w-5"></i> <span>Discipline Desk</span>
+          </button>
+
+          <button 
+            type="button"
+            onClick={() => switchTab('School Timetable')}
+            className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-sm transition-all ${
+              activeTab === 'School Timetable' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-800'
+            }`}
+          >
+            <i className="fas fa-calendar-alt w-5"></i> <span>Master Timetable</span>
+          </button>
+
+          <button 
+            type="button"
+            onClick={() => switchTab('Hostels')}
+            className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-sm transition-all ${
+              activeTab === 'Hostels' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-800'
+            }`}
+          >
+            <i className="fas fa-bed w-5"></i> <span>Boarding & Hostels</span>
+          </button>
+
+          <button 
+            type="button"
+            onClick={() => switchTab('Library')}
+            className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-sm transition-all ${
+              activeTab === 'Library' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-800'
+            }`}
+          >
+            <i className="fas fa-book w-5"></i> <span>Library Registry</span>
+          </button>
+
+          <button 
+            type="button"
+            onClick={() => switchTab('Inventory')}
+            className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-sm transition-all ${
+              activeTab === 'Inventory' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-800'
+            }`}
+          >
+            <i className="fas fa-boxes w-5"></i> <span>Stores & Assets</span>
           </button>
         </nav>
 
+        {/* LOGOUT */}
         <div className="pt-4 border-t border-slate-800 mt-auto">
           {!showExitConfirm ? (
             <button 
@@ -337,7 +495,7 @@ const Principal = ({ user }) => {
         </div>
       </aside>
 
-      {/* WORKSPACE AREA */}
+      {/* WORKSPACE CONTENT AREA */}
       <main className="flex-1 min-w-0 p-4 sm:p-6 md:p-10 overflow-y-auto">
         <header className="mb-6 md:mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
           <div>
@@ -350,7 +508,7 @@ const Principal = ({ user }) => {
           </div>
         </header>
 
-        {/* 1. OVERVIEW TAB */}
+        {/* 1. OVERVIEW */}
         {activeTab === 'Overview' && (
           <div className="space-y-6 animate-in fade-in duration-300">
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
@@ -376,19 +534,19 @@ const Principal = ({ user }) => {
           </div>
         )}
 
-        {/* 2. STREAM & CLASS MANAGEMENT */}
+        {/* 2. STREAM MANAGEMENT */}
         {activeTab === 'Stream Management' && (
           <div className="space-y-6 animate-in fade-in duration-300">
             <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm max-w-2xl">
               <h3 className="text-xs font-black uppercase text-slate-400 mb-2">School Stream Configurator</h3>
               <p className="text-xs text-slate-500 mb-6">
-                Register customized class stream labels (e.g., East, Simba, Gold) used across both Junior School and 8-4-4 classes.
+                Active streams saved directly to the database. These dynamically populate all student admissions and teacher allocations.
               </p>
 
               <form onSubmit={handleAddStream} className="flex gap-3 mb-6">
                 <input
                   type="text"
-                  placeholder="New Stream Name (e.g. Simba, Green, North)"
+                  placeholder="New Stream Name (e.g. Simba, Red, East)"
                   value={newStreamInput}
                   onChange={(e) => setNewStreamInput(e.target.value)}
                   className="flex-1 px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none focus:border-blue-600"
@@ -396,24 +554,39 @@ const Principal = ({ user }) => {
                 />
                 <button
                   type="submit"
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase px-6 py-3 rounded-xl transition"
+                  disabled={loadingStream}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase px-6 py-3 rounded-xl transition disabled:opacity-50"
                 >
-                  Add Stream
+                  {loadingStream ? 'Saving...' : 'Add Stream'}
                 </button>
               </form>
 
               <div className="flex flex-wrap gap-2">
-                {streams.map((st, idx) => (
-                  <span key={idx} className="bg-slate-100 border border-slate-200 text-slate-700 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2">
-                    <i className="fas fa-tag text-blue-500 text-[10px]"></i> Stream {st}
-                  </span>
-                ))}
+                {streams.length === 0 ? (
+                  <p className="text-xs text-slate-400 font-bold">No streams created yet. Add one above.</p>
+                ) : (
+                  streams.map((st) => (
+                    <span 
+                      key={st.id} 
+                      className="bg-slate-100 border border-slate-200 text-slate-700 pl-4 pr-2 py-2 rounded-xl text-xs font-bold flex items-center gap-3"
+                    >
+                      <span>Stream {st.stream_name}</span>
+                      <button 
+                        type="button" 
+                        onClick={() => handleDeleteStream(st.id, st.stream_name)}
+                        className="text-slate-400 hover:text-red-500 transition p-1"
+                      >
+                        <i className="fas fa-times text-xs"></i>
+                      </button>
+                    </span>
+                  ))
+                )}
               </div>
             </div>
           </div>
         )}
 
-        {/* 3. STAFF MANAGEMENT TAB (ALL ROLES) */}
+        {/* 3. STAFF MANAGEMENT */}
         {activeTab === 'Staff Management' && (
           <div className="space-y-6 animate-in fade-in duration-300">
             <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm">
@@ -434,13 +607,13 @@ const Principal = ({ user }) => {
                   onChange={(e) => setStaffForm({ ...staffForm, role: e.target.value })}
                   className="w-full md:w-64 px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
                 >
-                  <option value="Deputy Principal">Deputy Principal (Administration)</option>
-                  <option value="Dean of Studies">Dean of Studies / Exams Officer</option>
+                  <option value="Deputy Principal">Deputy Principal (Admin)</option>
+                  <option value="Dean of Studies">Dean of Studies / Exams</option>
                   <option value="Senior Teacher">Senior Master / Mistress (HOD)</option>
                   <option value="Class Teacher">Class / CBC Pathway Teacher</option>
                   <option value="Teacher">Subject Teacher</option>
                   <option value="Bursar">Bursar / Accounts Officer</option>
-                  <option value="Secretary">School Secretary / Registrar</option>
+                  <option value="Secretary">Secretary / Registrar</option>
                   <option value="Boarding Master">Boarding Master / Matron</option>
                   <option value="Librarian">Librarian</option>
                   <option value="Storekeeper">Storekeeper / Procurement</option>
@@ -449,14 +622,13 @@ const Principal = ({ user }) => {
                 <button
                   type="submit"
                   disabled={loadingStaff}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase px-6 py-3 rounded-xl transition"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase px-6 py-3 rounded-xl transition disabled:opacity-50"
                 >
                   {loadingStaff ? 'Registering...' : 'Register Staff'}
                 </button>
               </form>
             </div>
 
-            {/* Staff List Table */}
             <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
               <table className="w-full text-left min-w-[500px]">
                 <thead className="bg-slate-50 text-slate-400 text-[11px] font-black uppercase border-b border-slate-100">
@@ -481,6 +653,7 @@ const Principal = ({ user }) => {
                       <td className="p-4 font-mono font-bold text-emerald-600">{m.password || m.access_key}</td>
                       <td className="p-4 text-right">
                         <button
+                          type="button"
                           onClick={() => copyCredentials(m.staff_code || m.vinnie_digital_code, m.password || m.access_key, m.full_name)}
                           className="bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 px-3 py-1.5 rounded-lg text-xs font-bold"
                         >
@@ -495,12 +668,12 @@ const Principal = ({ user }) => {
           </div>
         )}
 
-        {/* 4. STUDENT ADMISSIONS (CBC & 8-4-4 HYBRID) */}
+        {/* 4. STUDENT ADMISSIONS */}
         {activeTab === 'Student Admissions' && (
           <div className="space-y-6 animate-in fade-in duration-300">
             <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm">
               <h3 className="text-xs font-black uppercase text-slate-400 mb-2">Admit Learner: CBC & 8-4-4 Supported</h3>
-              <p className="text-xs text-slate-500 mb-6">Enroll students into either Junior / Senior CBC or Form 3 / Form 4 cohorts.</p>
+              <p className="text-xs text-slate-500 mb-6">Enroll students into Junior/Senior CBC or Form 3/Form 4 classes.</p>
 
               <form onSubmit={handleAdmitStudent} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
@@ -528,7 +701,7 @@ const Principal = ({ user }) => {
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Curriculum Framework</label>
+                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Curriculum</label>
                   <select
                     value={studentForm.curriculum}
                     onChange={(e) => {
@@ -547,7 +720,7 @@ const Principal = ({ user }) => {
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Class / Grade Level</label>
+                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Grade / Form Level</label>
                   <select
                     value={studentForm.gradeLevel}
                     onChange={(e) => setStudentForm({ ...studentForm, gradeLevel: e.target.value })}
@@ -570,15 +743,20 @@ const Principal = ({ user }) => {
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Stream Allocation</label>
+                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Stream</label>
                   <select
                     value={studentForm.stream}
                     onChange={(e) => setStudentForm({ ...studentForm, stream: e.target.value })}
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
+                    required
                   >
-                    {streams.map((st, i) => (
-                      <option key={i} value={st}>{st}</option>
-                    ))}
+                    {streams.length === 0 ? (
+                      <option value="">No streams found - add in Streams tab</option>
+                    ) : (
+                      streams.map((st) => (
+                        <option key={st.id} value={st.stream_name}>{st.stream_name}</option>
+                      ))
+                    )}
                   </select>
                 </div>
 
@@ -606,7 +784,7 @@ const Principal = ({ user }) => {
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Accommodation Status</label>
+                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Accommodation</label>
                   <select
                     value={studentForm.boardingStatus}
                     onChange={(e) => setStudentForm({ ...studentForm, boardingStatus: e.target.value })}
@@ -621,7 +799,7 @@ const Principal = ({ user }) => {
                   <button
                     type="submit"
                     disabled={loadingStudent}
-                    className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest rounded-xl transition shadow-lg shadow-blue-600/20"
+                    className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest rounded-xl transition shadow-lg shadow-blue-600/20 disabled:opacity-50"
                   >
                     {loadingStudent ? 'Enrolling...' : 'Admit Learner'}
                   </button>
@@ -631,83 +809,162 @@ const Principal = ({ user }) => {
           </div>
         )}
 
-        {/* 5. ENTER MARKS (CBC RUBRICS & 8-4-4 PERCENTAGES) */}
+        {/* 5. STUDENTS DIRECTORY */}
+        {activeTab === 'Students' && (
+          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-4 animate-in fade-in duration-300">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-base font-black uppercase text-slate-800 tracking-tight">Active Learners Roster</h3>
+                <p className="text-xs text-slate-400 font-semibold">{students.length} Learners Enrolled</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => switchTab('Student Admissions')}
+                className="px-4 py-2 bg-blue-600 text-white text-xs font-black uppercase rounded-xl"
+              >
+                + New Admission
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left min-w-[600px]">
+                <thead className="bg-slate-50 text-slate-400 text-[11px] font-black uppercase border-b border-slate-100">
+                  <tr>
+                    <th className="p-4">Adm No.</th>
+                    <th className="p-4">Learner Name</th>
+                    <th className="p-4">Class</th>
+                    <th className="p-4">Stream</th>
+                    <th className="p-4">Guardian Phone</th>
+                    <th className="p-4">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm font-medium">
+                  {students.map((st) => (
+                    <tr key={st.id} className="hover:bg-slate-50/70">
+                      <td className="p-4 font-mono font-bold text-blue-600">{st.admission_number}</td>
+                      <td className="p-4 font-bold text-slate-900">{st.full_name}</td>
+                      <td className="p-4">{st.grade_level}</td>
+                      <td className="p-4">{st.stream}</td>
+                      <td className="p-4 font-mono text-slate-600">{st.guardian_phone}</td>
+                      <td className="p-4">
+                        <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-xs font-bold">
+                          {st.boarding_status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* 6. ENTER MARKS (CALLS MODULAR EnterMarks.jsx) */}
         {activeTab === 'Enter Marks' && (
-          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm max-w-xl animate-in fade-in duration-300">
-            <h3 className="text-xs font-black uppercase text-slate-400 mb-2">Examination & Assessment Entry</h3>
-            <p className="text-xs text-slate-500 mb-6">Input numeric percentages or CBC expectation levels.</p>
+          <EnterMarks user={user} />
+        )}
 
-            <form onSubmit={handleRecordMark} className="space-y-4">
-              <input
-                type="text"
-                placeholder="Learner Admission Number"
-                value={markForm.admissionNumber}
-                onChange={(e) => setMarkForm({ ...markForm, admissionNumber: e.target.value })}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
-                required
-              />
+        {/* 7. BULK SMS HUB */}
+        {activeTab === 'Bulk SMS Hub' && (
+          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm max-w-2xl animate-in fade-in duration-300">
+            <h2 className="text-base sm:text-lg font-black uppercase text-slate-800 tracking-tight mb-1">
+              Broadcast Communications Engine
+            </h2>
+            <p className="text-xs text-slate-500 mb-6 font-medium">
+              Dispatch official SMS announcements directly to guardians or staff.
+            </p>
 
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleSendSMS} className="space-y-4">
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">
+                  Recipient Group
+                </label>
                 <select
-                  value={markForm.curriculumSystem}
-                  onChange={(e) => setMarkForm({ ...markForm, curriculumSystem: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
+                  value={smsData.targetGroup}
+                  onChange={(e) => setSmsData({ ...smsData, targetGroup: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none focus:border-blue-600"
                 >
-                  <option value="CBC">CBC Assessment</option>
-                  <option value="844">8-4-4 Traditional Exam</option>
-                </select>
-
-                <select
-                  value={markForm.assessmentSeries}
-                  onChange={(e) => setMarkForm({ ...markForm, assessmentSeries: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
-                >
-                  <option value="Opener">Opener Exam</option>
-                  <option value="Mid Term">Mid Term Assessment</option>
-                  <option value="End Term">End Term Exam</option>
+                  <option value="All Parents">All Parents & Guardians</option>
+                  <option value="All Staff">School Staff & Faculty</option>
+                  <option value="Fee Defaulters">Fee Defaulters Only</option>
+                  <option value="Board of Management">Board of Management (B.O.M)</option>
                 </select>
               </div>
 
-              {markForm.curriculumSystem === 'CBC' ? (
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Performance Level</label>
-                  <select
-                    value={markForm.cbcRubric}
-                    onChange={(e) => setMarkForm({ ...markForm, cbcRubric: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
-                  >
-                    <option value="EE - Exceeding Expectation">Level 4: EE (Exceeding Expectation)</option>
-                    <option value="ME - Meeting Expectation">Level 3: ME (Meeting Expectation)</option>
-                    <option value="AE - Approaching Expectation">Level 2: AE (Approaching Expectation)</option>
-                    <option value="BE - Below Expectation">Level 1: BE (Below Expectation)</option>
-                  </select>
-                </div>
-              ) : (
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Percentage Score (%)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    placeholder="Score (0 - 100)"
-                    value={markForm.score}
-                    onChange={(e) => setMarkForm({ ...markForm, score: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
-                    required
-                  />
-                </div>
-              )}
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">
+                  Message Content
+                </label>
+                <textarea
+                  rows="4"
+                  placeholder="Type official notification message..."
+                  value={smsData.message}
+                  onChange={(e) => setSmsData({ ...smsData, message: e.target.value })}
+                  className="w-full p-4 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium outline-none focus:border-blue-600 resize-none"
+                  required
+                />
+              </div>
 
               <button
                 type="submit"
-                disabled={loadingMark}
-                className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest rounded-xl transition shadow-lg shadow-blue-600/20"
+                disabled={isSendingSms}
+                className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest rounded-xl transition shadow-lg shadow-blue-600/20 disabled:opacity-50"
               >
-                {loadingMark ? 'Saving...' : 'Commit Evaluation'}
+                {isSendingSms ? 'Transmitting SMS...' : 'Dispatch Broadcast SMS'}
               </button>
             </form>
           </div>
         )}
+
+        {/* 8. PLACEHOLDER / SOON MODULES */}
+        {activeTab === 'Exam Analysis' && renderComingSoon(
+          'Academic Merit & Exam Analysis',
+          'Dean of Studies analytical reports, subject performance breakdowns, and report card generation will appear here.',
+          'fa-file-alt'
+        )}
+
+        {activeTab === 'Fee Operations' && renderComingSoon(
+          'Fee Ledger & Receipts',
+          'Bursar payment recording, votehead allocations, fee balances, and M-Pesa reconciliations will appear here.',
+          'fa-receipt'
+        )}
+
+        {activeTab === 'Attendance' && renderComingSoon(
+          'Roll Call & Biometrics',
+          'Class attendance registers, morning roll call sync, and absenteeism alerts will appear here.',
+          'fa-clipboard-check'
+        )}
+
+        {activeTab === 'Discipline' && renderComingSoon(
+          'Discipline & Conduct Records',
+          'Deputy Principal conduct logs, summons letters, incident tracking, and disciplinary actions will appear here.',
+          'fa-gavel'
+        )}
+
+        {activeTab === 'School Timetable' && renderComingSoon(
+          'Master Timetable & Lesson Scheduler',
+          'Lesson distribution tables, room allocations, and individual teacher teaching timetables will appear here.',
+          'fa-calendar-alt'
+        )}
+
+        {activeTab === 'Hostels' && renderComingSoon(
+          'Hostels & Boarding Desks',
+          'Dormitory bed assignments, boarding inventory, and night roll call management will appear here.',
+          'fa-bed'
+        )}
+
+        {activeTab === 'Library' && renderComingSoon(
+          'Library Resource Center',
+          'Textbook circulation, book cataloging, borrower tracking, and overdue recovery will appear here.',
+          'fa-book'
+        )}
+
+        {activeTab === 'Inventory' && renderComingSoon(
+          'Stores & School Supplies',
+          'Laboratory equipment logs, kitchen rations, stationery stock, and asset registers will appear here.',
+          'fa-boxes'
+        )}
+
       </main>
     </div>
   );
