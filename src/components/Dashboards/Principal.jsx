@@ -6,6 +6,7 @@ import StaffControl from '../Admin/StaffControl';
 import StreamClassManagement from '../Admin/StreamClassManagement';
 import StudentAdmissions from '../Admin/StudentAdmissions';
 import LearnersDirectory from '../Admin/LearnersDirectory';
+import Overview from '../Admin/Overview';
 
 const Principal = ({ user }) => {
   const [activeTab, setActiveTab] = useState('Overview');
@@ -346,28 +347,7 @@ const Principal = ({ user }) => {
 
         {/* 1. OVERVIEW */}
         {activeTab === 'Overview' && (
-          <div className="space-y-6 animate-in fade-in duration-300">
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Total Staff</p>
-                <h2 className="text-2xl font-black text-slate-800 mt-1">{stats.staff}</h2>
-              </div>
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Total Learners</p>
-                <h2 className="text-2xl font-black text-slate-800 mt-1">{stats.students}</h2>
-              </div>
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">School Mean</p>
-                <h2 className="text-2xl font-black text-blue-600 mt-1">{stats.meanGrade}</h2>
-              </div>
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Boarding / Day</p>
-                <h2 className="text-xl font-black text-slate-800 mt-1">
-                  {stats.distribution.boarding} / {stats.distribution.day}
-                </h2>
-              </div>
-            </div>
-          </div>
+          <Overview user={user} />
         )}
 
         {/* 2. DYNAMIC MODULES */}
@@ -416,7 +396,7 @@ const Principal = ({ user }) => {
                   <option value="Fee Defaulters">Fee Defaulters Only</option>
                   <option value="Board of Management">Board of Management (B.O.M)</option>
                 </select>
-              </div>
+            </div>
 
               <div>
                 <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">
@@ -430,7 +410,7 @@ const Principal = ({ user }) => {
                   className="w-full p-4 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium outline-none focus:border-blue-600 resize-none"
                   required
                 />
-              </div>
+            </div>
 
               <button
                 type="submit"
