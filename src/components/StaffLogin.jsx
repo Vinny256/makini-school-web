@@ -4,10 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 
 const StaffLogin = () => {
-  const [formData, setFormData] = useState({ idNumber: '', vinnieCode: '' });
+  const [formData, setFormData] = useState({ schoolCode: '', accessKey: '' });
   const [loading, setLoading] = useState(false);
   
-  // New state for toggling code visibility
+  // State for toggling code visibility
   const [showCode, setShowCode] = useState(false);
   
   const navigate = useNavigate();
@@ -17,15 +17,18 @@ const StaffLogin = () => {
     setLoading(true);
     
     try {
-      const res = await API.post("/staff/login", formData);
+      const res = await API.post("/staff/login", {
+        schoolCode: formData.schoolCode.trim(),
+        accessKey: formData.accessKey.trim()
+      });
       
       if (res.data.success) {
         localStorage.setItem('vinnie_user', JSON.stringify(res.data.user));
-        toast.success(`Welcome back, ${res.data.user.name}`);
+        toast.success(`Welcome back, ${res.data.user.fullName || res.data.user.name}`);
         navigate('/admin'); 
       }
     } catch (err) {
-      const errorMsg = err.response?.data?.message || "Invalid Credentials";
+      const errorMsg = err.response?.data?.message || err.response?.data?.error || "Invalid Credentials";
       toast.error(errorMsg);
     } finally {
       setLoading(false);
@@ -68,29 +71,31 @@ const StaffLogin = () => {
 
         <form onSubmit={handleLogin} className="space-y-5 relative">
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-400 uppercase ml-1">Identity Number</label>
+            <label className="text-xs font-bold text-slate-400 uppercase ml-1">School Code</label>
             <div className="relative">
-              <i className="fas fa-id-card absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
+              <i className="fas fa-school absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
               <input 
                 type="text" 
-                placeholder="National ID or TSC Number" 
+                placeholder="e.g. 0002" 
                 required
-                className="w-full pl-12 p-4 bg-slate-800 rounded-2xl border border-slate-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-white"
-                onChange={(e) => setFormData({...formData, idNumber: e.target.value})}
+                value={formData.schoolCode}
+                className="w-full pl-12 p-4 bg-slate-800 rounded-2xl border border-slate-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-white font-mono"
+                onChange={(e) => setFormData({...formData, schoolCode: e.target.value})}
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-400 uppercase ml-1">Vinnie Digital Code</label>
+            <label className="text-xs font-bold text-slate-400 uppercase ml-1">Access Key</label>
             <div className="relative">
               <i className="fas fa-key absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
               <input 
                 type={showCode ? "text" : "password"} 
-                placeholder="1121XX" 
+                placeholder="VD-XXXX (e.g. VD-5093)" 
                 required
+                value={formData.accessKey}
                 className="w-full pl-12 pr-12 p-4 bg-slate-800 rounded-2xl border border-slate-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-white font-mono"
-                onChange={(e) => setFormData({...formData, vinnieCode: e.target.value})}
+                onChange={(e) => setFormData({...formData, accessKey: e.target.value})}
               />
               
               {/* EYE ICON TOGGLE */}
