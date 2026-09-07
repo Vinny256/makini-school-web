@@ -8,7 +8,16 @@ const Principal = ({ user }) => {
   const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   // Executive Overview State
-  const [stats, setStats] = useState({ staff: 0, students: 0, meanGrade: 'N/A', distribution: { boarding: 0, day: 0 } });
+  const [stats, setStats] = useState({ 
+    staff: 0, 
+    students: 0, 
+    meanGrade: 'N/A', 
+    distribution: { boarding: 0, day: 0 } 
+  });
+
+  // Stream Management State
+  const [streams, setStreams] = useState(['East', 'West', 'North', 'South']);
+  const [newStreamInput, setNewStreamInput] = useState('');
 
   // Staff Management State
   const [staffList, setStaffList] = useState([]);
@@ -16,24 +25,29 @@ const Principal = ({ user }) => {
   const [loadingStaff, setLoadingStaff] = useState(false);
   const [fetchingStaff, setFetchingStaff] = useState(false);
 
-  // Student Admissions State
+  // Student Admissions State (CBC + 8-4-4 Hybrid)
   const [students, setStudents] = useState([]);
   const [studentForm, setStudentForm] = useState({
     admissionNumber: '',
     fullName: '',
-    gradeLevel: 'Form 1',
+    curriculum: 'CBC (Junior/Senior)',
+    gradeLevel: 'Grade 9',
     stream: 'East',
+    upiNumber: '',
+    guardianName: '',
     guardianPhone: '',
-    boardingStatus: 'Day'
+    boardingStatus: 'Boarding'
   });
   const [loadingStudent, setLoadingStudent] = useState(false);
 
-  // Marks Entry State (Principal as Teacher)
+  // Marks Entry State (Supports numeric & CBC Rubrics)
   const [markForm, setMarkForm] = useState({
     admissionNumber: '',
-    subject: 'Mathematics',
-    examType: 'Mid Term',
-    score: ''
+    curriculumSystem: 'CBC',
+    subject: 'Integrated Science',
+    assessmentSeries: 'End Term',
+    score: '',
+    cbcRubric: 'ME - Meeting Expectation'
   });
   const [loadingMark, setLoadingMark] = useState(false);
 
@@ -46,7 +60,7 @@ const Principal = ({ user }) => {
           staff: res.data.staff,
           students: res.data.students,
           meanGrade: res.data.meanGrade,
-          distribution: res.data.distribution
+          distribution: res.data.distribution || { boarding: 0, day: 0 }
         });
       }
     } catch (err) {
@@ -85,10 +99,21 @@ const Principal = ({ user }) => {
     }
   }, [user?.schoolId]);
 
-  // Handler: Register Staff
+  // Handler: Add Custom Stream
+  const handleAddStream = (e) => {
+    e.preventDefault();
+    const trimmed = newStreamInput.trim();
+    if (!trimmed) return;
+    if (streams.includes(trimmed)) return toast.error("Stream already registered!");
+    setStreams([...streams, trimmed]);
+    setNewStreamInput('');
+    toast.success(`Stream "${trimmed}" activated.`);
+  };
+
+  // Handler: Register Staff Member
   const handleRegisterStaff = async (e) => {
     e.preventDefault();
-    if (!staffForm.fullName.trim()) return toast.error("Enter staff full name");
+    if (!staffForm.fullName.trim()) return toast.error("Enter staff member's full name");
 
     setLoadingStaff(true);
     try {
@@ -98,7 +123,10 @@ const Principal = ({ user }) => {
         role: staffForm.role
       });
 
-      toast.success(`Staff Registered: ${res.data.staff.staff_code} | Key: ${res.data.staff.password}`, { duration: 8000 });
+      toast.success(
+        `Staff Created: ${res.data.staff.staff_code} | Key: ${res.data.staff.password}`, 
+        { duration: 8000 }
+      );
       setStaffForm({ fullName: '', role: 'Teacher' });
       fetchStaff();
       fetchStats();
@@ -118,25 +146,28 @@ const Principal = ({ user }) => {
         schoolId: user.schoolId,
         ...studentForm
       });
-      toast.success(`Student Admitted: ${res.data.student.full_name} (${res.data.student.admission_number})`);
+      toast.success(`Learner Admitted: ${res.data.student.full_name} (${res.data.student.admission_number})`);
       setStudentForm({
         admissionNumber: '',
         fullName: '',
-        gradeLevel: 'Form 1',
-        stream: 'East',
+        curriculum: studentForm.curriculum,
+        gradeLevel: studentForm.gradeLevel,
+        stream: streams[0] || 'East',
+        upiNumber: '',
+        guardianName: '',
         guardianPhone: '',
-        boardingStatus: 'Day'
+        boardingStatus: 'Boarding'
       });
       fetchStudents();
       fetchStats();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Admission failed");
+      toast.error(err.response?.data?.message || "Student admission failed");
     } finally {
       setLoadingStudent(false);
     }
   };
 
-  // Handler: Record Mark
+  // Handler: Commit Assessment / Exam Marks
   const handleRecordMark = async (e) => {
     e.preventDefault();
     setLoadingMark(true);
@@ -145,11 +176,11 @@ const Principal = ({ user }) => {
         schoolId: user.schoolId,
         ...markForm
       });
-      toast.success(`Recorded score for ${markForm.admissionNumber}`);
+      toast.success(`Assessment score saved for Adm: ${markForm.admissionNumber}`);
       setMarkForm({ ...markForm, admissionNumber: '', score: '' });
       fetchStats();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to commit mark");
+      toast.error(err.response?.data?.message || "Failed to commit assessment");
     } finally {
       setLoadingMark(false);
     }
@@ -157,7 +188,7 @@ const Principal = ({ user }) => {
 
   const copyCredentials = (code, pass, name) => {
     navigator.clipboard.writeText(`Staff: ${name}\nLogin Code: ${code}\nAccess Key: ${pass}`);
-    toast.success(`Copied login for ${name}`);
+    toast.success(`Copied login details for ${name}`);
   };
 
   const switchTab = (tab) => {
@@ -179,7 +210,7 @@ const Principal = ({ user }) => {
               Executive <span className="text-blue-500">Portal</span>
             </h2>
             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
-              {user?.schoolName || 'School System'}
+              {user?.schoolName || 'School Workspace'}
             </p>
           </div>
         </div>
@@ -219,13 +250,13 @@ const Principal = ({ user }) => {
           </p>
         </div>
 
-        <nav className="flex-1 space-y-2 overflow-y-auto pr-1">
-          <p className="text-slate-500 text-[10px] font-black uppercase mb-3 ml-2 tracking-widest">Administration</p>
+        <nav className="flex-1 space-y-1.5 overflow-y-auto pr-1">
+          <p className="text-slate-500 text-[10px] font-black uppercase mb-3 ml-2 tracking-widest">Master Menu</p>
           
           <button 
             type="button"
             onClick={() => switchTab('Overview')}
-            className={`flex items-center gap-3 w-full p-3.5 rounded-xl font-bold text-sm transition-all ${
+            className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-sm transition-all ${
               activeTab === 'Overview' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-800'
             }`}
           >
@@ -235,7 +266,7 @@ const Principal = ({ user }) => {
           <button 
             type="button"
             onClick={() => switchTab('Staff Management')}
-            className={`flex items-center gap-3 w-full p-3.5 rounded-xl font-bold text-sm transition-all ${
+            className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-sm transition-all ${
               activeTab === 'Staff Management' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-800'
             }`}
           >
@@ -244,22 +275,32 @@ const Principal = ({ user }) => {
 
           <button 
             type="button"
+            onClick={() => switchTab('Stream Management')}
+            className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-sm transition-all ${
+              activeTab === 'Stream Management' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-800'
+            }`}
+          >
+            <i className="fas fa-layer-group w-5"></i> <span>Streams & Classes</span>
+          </button>
+
+          <button 
+            type="button"
             onClick={() => switchTab('Student Admissions')}
-            className={`flex items-center gap-3 w-full p-3.5 rounded-xl font-bold text-sm transition-all ${
+            className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-sm transition-all ${
               activeTab === 'Student Admissions' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-800'
             }`}
           >
-            <i className="fas fa-user-plus w-5"></i> <span>Admissions</span>
+            <i className="fas fa-user-plus w-5"></i> <span>Admissions (CBC & 844)</span>
           </button>
 
           <button 
             type="button"
             onClick={() => switchTab('Enter Marks')}
-            className={`flex items-center gap-3 w-full p-3.5 rounded-xl font-bold text-sm transition-all ${
+            className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-sm transition-all ${
               activeTab === 'Enter Marks' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-800'
             }`}
           >
-            <i className="fas fa-marker w-5"></i> <span>Enter Marks</span>
+            <i className="fas fa-marker w-5"></i> <span>Marks & CBC Rubrics</span>
           </button>
         </nav>
 
@@ -296,7 +337,7 @@ const Principal = ({ user }) => {
         </div>
       </aside>
 
-      {/* WORKSPACE */}
+      {/* WORKSPACE AREA */}
       <main className="flex-1 min-w-0 p-4 sm:p-6 md:p-10 overflow-y-auto">
         <header className="mb-6 md:mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
           <div>
@@ -318,7 +359,7 @@ const Principal = ({ user }) => {
                 <h2 className="text-2xl font-black text-slate-800 mt-1">{stats.staff}</h2>
               </div>
               <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Total Students</p>
+                <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Total Learners</p>
                 <h2 className="text-2xl font-black text-slate-800 mt-1">{stats.students}</h2>
               </div>
               <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
@@ -335,34 +376,76 @@ const Principal = ({ user }) => {
           </div>
         )}
 
-        {/* 2. STAFF MANAGEMENT TAB */}
-        {activeTab === 'Staff Management' && (
+        {/* 2. STREAM & CLASS MANAGEMENT */}
+        {activeTab === 'Stream Management' && (
           <div className="space-y-6 animate-in fade-in duration-300">
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-              <h3 className="text-xs font-black uppercase text-slate-400 mb-4">Register Faculty & Personnel</h3>
-              <form onSubmit={handleRegisterStaff} className="flex flex-col sm:flex-row gap-3">
+            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm max-w-2xl">
+              <h3 className="text-xs font-black uppercase text-slate-400 mb-2">School Stream Configurator</h3>
+              <p className="text-xs text-slate-500 mb-6">
+                Register customized class stream labels (e.g., East, Simba, Gold) used across both Junior School and 8-4-4 classes.
+              </p>
+
+              <form onSubmit={handleAddStream} className="flex gap-3 mb-6">
                 <input
                   type="text"
-                  placeholder="Full Name"
+                  placeholder="New Stream Name (e.g. Simba, Green, North)"
+                  value={newStreamInput}
+                  onChange={(e) => setNewStreamInput(e.target.value)}
+                  className="flex-1 px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none focus:border-blue-600"
+                  required
+                />
+                <button
+                  type="submit"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase px-6 py-3 rounded-xl transition"
+                >
+                  Add Stream
+                </button>
+              </form>
+
+              <div className="flex flex-wrap gap-2">
+                {streams.map((st, idx) => (
+                  <span key={idx} className="bg-slate-100 border border-slate-200 text-slate-700 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2">
+                    <i className="fas fa-tag text-blue-500 text-[10px]"></i> Stream {st}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 3. STAFF MANAGEMENT TAB (ALL ROLES) */}
+        {activeTab === 'Staff Management' && (
+          <div className="space-y-6 animate-in fade-in duration-300">
+            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm">
+              <h3 className="text-xs font-black uppercase text-slate-400 mb-4">Register Faculty & Operational Staff</h3>
+              
+              <form onSubmit={handleRegisterStaff} className="flex flex-col md:flex-row gap-3">
+                <input
+                  type="text"
+                  placeholder="Full Name (e.g. Geoffrey Mutua)"
                   value={staffForm.fullName}
                   onChange={(e) => setStaffForm({ ...staffForm, fullName: e.target.value })}
                   className="flex-1 px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none focus:border-blue-600"
                   required
                 />
+                
                 <select
                   value={staffForm.role}
                   onChange={(e) => setStaffForm({ ...staffForm, role: e.target.value })}
-                  className="w-full sm:w-56 px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
+                  className="w-full md:w-64 px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
                 >
-                  <option value="Deputy Principal">Deputy Principal</option>
-                  <option value="Dean of Studies">Dean of Studies</option>
-                  <option value="Senior Teacher">Senior Teacher</option>
+                  <option value="Deputy Principal">Deputy Principal (Administration)</option>
+                  <option value="Dean of Studies">Dean of Studies / Exams Officer</option>
+                  <option value="Senior Teacher">Senior Master / Mistress (HOD)</option>
+                  <option value="Class Teacher">Class / CBC Pathway Teacher</option>
                   <option value="Teacher">Subject Teacher</option>
-                  <option value="Secretary">Secretary</option>
-                  <option value="Bursar">Bursar</option>
-                  <option value="Boarding Master">Boarding Master</option>
+                  <option value="Bursar">Bursar / Accounts Officer</option>
+                  <option value="Secretary">School Secretary / Registrar</option>
+                  <option value="Boarding Master">Boarding Master / Matron</option>
                   <option value="Librarian">Librarian</option>
+                  <option value="Storekeeper">Storekeeper / Procurement</option>
                 </select>
+
                 <button
                   type="submit"
                   disabled={loadingStaff}
@@ -389,7 +472,11 @@ const Principal = ({ user }) => {
                   {staffList.map((m) => (
                     <tr key={m.id}>
                       <td className="p-4 font-bold text-slate-900">{m.full_name}</td>
-                      <td className="p-4"><span className="bg-slate-100 px-2 py-1 rounded-lg text-xs font-bold">{m.role}</span></td>
+                      <td className="p-4">
+                        <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg text-xs font-bold">
+                          {m.role}
+                        </span>
+                      </td>
                       <td className="p-4 font-mono font-bold text-blue-600">{m.staff_code || m.vinnie_digital_code}</td>
                       <td className="p-4 font-mono font-bold text-emerald-600">{m.password || m.access_key}</td>
                       <td className="p-4 text-right">
@@ -408,68 +495,135 @@ const Principal = ({ user }) => {
           </div>
         )}
 
-        {/* 3. STUDENT ADMISSIONS TAB */}
+        {/* 4. STUDENT ADMISSIONS (CBC & 8-4-4 HYBRID) */}
         {activeTab === 'Student Admissions' && (
           <div className="space-y-6 animate-in fade-in duration-300">
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-              <h3 className="text-xs font-black uppercase text-slate-400 mb-4">Admit New Learner</h3>
+            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm">
+              <h3 className="text-xs font-black uppercase text-slate-400 mb-2">Admit Learner: CBC & 8-4-4 Supported</h3>
+              <p className="text-xs text-slate-500 mb-6">Enroll students into either Junior / Senior CBC or Form 3 / Form 4 cohorts.</p>
+
               <form onSubmit={handleAdmitStudent} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <input
-                  type="text"
-                  placeholder="Admission No (e.g. 1042)"
-                  value={studentForm.admissionNumber}
-                  onChange={(e) => setStudentForm({ ...studentForm, admissionNumber: e.target.value })}
-                  className="px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
-                  required
-                />
-                <input
-                  type="text"
-                  placeholder="Full Name"
-                  value={studentForm.fullName}
-                  onChange={(e) => setStudentForm({ ...studentForm, fullName: e.target.value })}
-                  className="px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
-                  required
-                />
-                <select
-                  value={studentForm.gradeLevel}
-                  onChange={(e) => setStudentForm({ ...studentForm, gradeLevel: e.target.value })}
-                  className="px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
-                >
-                  <option value="Form 1">Form 1</option>
-                  <option value="Form 2">Form 2</option>
-                  <option value="Form 3">Form 3</option>
-                  <option value="Form 4">Form 4</option>
-                </select>
-                <input
-                  type="text"
-                  placeholder="Stream (e.g. East)"
-                  value={studentForm.stream}
-                  onChange={(e) => setStudentForm({ ...studentForm, stream: e.target.value })}
-                  className="px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
-                />
-                <input
-                  type="text"
-                  placeholder="Guardian Phone (e.g. 07XXXXXXXX)"
-                  value={studentForm.guardianPhone}
-                  onChange={(e) => setStudentForm({ ...studentForm, guardianPhone: e.target.value })}
-                  className="px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
-                  required
-                />
-                <select
-                  value={studentForm.boardingStatus}
-                  onChange={(e) => setStudentForm({ ...studentForm, boardingStatus: e.target.value })}
-                  className="px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
-                >
-                  <option value="Day">Day Scholar</option>
-                  <option value="Boarding">Boarding</option>
-                </select>
-                <div className="sm:col-span-3">
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Admission Number</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 1084"
+                    value={studentForm.admissionNumber}
+                    onChange={(e) => setStudentForm({ ...studentForm, admissionNumber: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Full Name</label>
+                  <input
+                    type="text"
+                    placeholder="Learner's Full Name"
+                    value={studentForm.fullName}
+                    onChange={(e) => setStudentForm({ ...studentForm, fullName: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Curriculum Framework</label>
+                  <select
+                    value={studentForm.curriculum}
+                    onChange={(e) => {
+                      const cur = e.target.value;
+                      setStudentForm({ 
+                        ...studentForm, 
+                        curriculum: cur,
+                        gradeLevel: cur.includes('CBC') ? 'Grade 9' : 'Form 3'
+                      });
+                    }}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
+                  >
+                    <option value="CBC (Junior/Senior)">CBC (Junior & Senior School)</option>
+                    <option value="8-4-4 Secondary">8-4-4 Secondary</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Class / Grade Level</label>
+                  <select
+                    value={studentForm.gradeLevel}
+                    onChange={(e) => setStudentForm({ ...studentForm, gradeLevel: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
+                  >
+                    {studentForm.curriculum.includes('CBC') ? (
+                      <>
+                        <option value="Grade 7">Grade 7 (Junior School)</option>
+                        <option value="Grade 8">Grade 8 (Junior School)</option>
+                        <option value="Grade 9">Grade 9 (Junior School)</option>
+                        <option value="Grade 10">Grade 10 (Senior School)</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="Form 3">Form 3 (8-4-4)</option>
+                        <option value="Form 4">Form 4 (8-4-4)</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Stream Allocation</label>
+                  <select
+                    value={studentForm.stream}
+                    onChange={(e) => setStudentForm({ ...studentForm, stream: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
+                  >
+                    {streams.map((st, i) => (
+                      <option key={i} value={st}>{st}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">NEMIS / UPI Code</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. ABC123XYZ"
+                    value={studentForm.upiNumber}
+                    onChange={(e) => setStudentForm({ ...studentForm, upiNumber: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Guardian Phone (SMS)</label>
+                  <input
+                    type="text"
+                    placeholder="07XXXXXXXX"
+                    value={studentForm.guardianPhone}
+                    onChange={(e) => setStudentForm({ ...studentForm, guardianPhone: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Accommodation Status</label>
+                  <select
+                    value={studentForm.boardingStatus}
+                    onChange={(e) => setStudentForm({ ...studentForm, boardingStatus: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
+                  >
+                    <option value="Boarding">Boarding Scholar</option>
+                    <option value="Day">Day Scholar</option>
+                  </select>
+                </div>
+
+                <div className="sm:col-span-3 mt-2">
                   <button
                     type="submit"
                     disabled={loadingStudent}
-                    className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest rounded-xl transition"
+                    className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest rounded-xl transition shadow-lg shadow-blue-600/20"
                   >
-                    {loadingStudent ? 'Admitting...' : 'Admit Student'}
+                    {loadingStudent ? 'Enrolling...' : 'Admit Learner'}
                   </button>
                 </div>
               </form>
@@ -477,49 +631,79 @@ const Principal = ({ user }) => {
           </div>
         )}
 
-        {/* 4. ENTER MARKS TAB */}
+        {/* 5. ENTER MARKS (CBC RUBRICS & 8-4-4 PERCENTAGES) */}
         {activeTab === 'Enter Marks' && (
-          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm max-w-xl animate-in fade-in duration-300">
-            <h3 className="text-xs font-black uppercase text-slate-400 mb-4">Record Assessment Mark</h3>
+          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm max-w-xl animate-in fade-in duration-300">
+            <h3 className="text-xs font-black uppercase text-slate-400 mb-2">Examination & Assessment Entry</h3>
+            <p className="text-xs text-slate-500 mb-6">Input numeric percentages or CBC expectation levels.</p>
+
             <form onSubmit={handleRecordMark} className="space-y-4">
               <input
                 type="text"
-                placeholder="Student Admission Number"
+                placeholder="Learner Admission Number"
                 value={markForm.admissionNumber}
                 onChange={(e) => setMarkForm({ ...markForm, admissionNumber: e.target.value })}
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
                 required
               />
+
               <div className="grid grid-cols-2 gap-3">
                 <select
-                  value={markForm.subject}
-                  onChange={(e) => setMarkForm({ ...markForm, subject: e.target.value })}
+                  value={markForm.curriculumSystem}
+                  onChange={(e) => setMarkForm({ ...markForm, curriculumSystem: e.target.value })}
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
                 >
-                  <option value="Mathematics">Mathematics</option>
-                  <option value="English">English</option>
-                  <option value="Kiswahili">Kiswahili</option>
-                  <option value="Chemistry">Chemistry</option>
-                  <option value="Physics">Physics</option>
-                  <option value="Biology">Biology</option>
+                  <option value="CBC">CBC Assessment</option>
+                  <option value="844">8-4-4 Traditional Exam</option>
                 </select>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  placeholder="Score (%)"
-                  value={markForm.score}
-                  onChange={(e) => setMarkForm({ ...markForm, score: e.target.value })}
+
+                <select
+                  value={markForm.assessmentSeries}
+                  onChange={(e) => setMarkForm({ ...markForm, assessmentSeries: e.target.value })}
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
-                  required
-                />
+                >
+                  <option value="Opener">Opener Exam</option>
+                  <option value="Mid Term">Mid Term Assessment</option>
+                  <option value="End Term">End Term Exam</option>
+                </select>
               </div>
+
+              {markForm.curriculumSystem === 'CBC' ? (
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Performance Level</label>
+                  <select
+                    value={markForm.cbcRubric}
+                    onChange={(e) => setMarkForm({ ...markForm, cbcRubric: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
+                  >
+                    <option value="EE - Exceeding Expectation">Level 4: EE (Exceeding Expectation)</option>
+                    <option value="ME - Meeting Expectation">Level 3: ME (Meeting Expectation)</option>
+                    <option value="AE - Approaching Expectation">Level 2: AE (Approaching Expectation)</option>
+                    <option value="BE - Below Expectation">Level 1: BE (Below Expectation)</option>
+                  </select>
+                </div>
+              ) : (
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Percentage Score (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    placeholder="Score (0 - 100)"
+                    value={markForm.score}
+                    onChange={(e) => setMarkForm({ ...markForm, score: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
+                    required
+                  />
+                </div>
+              )}
+
               <button
                 type="submit"
                 disabled={loadingMark}
-                className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest rounded-xl transition"
+                className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest rounded-xl transition shadow-lg shadow-blue-600/20"
               >
-                {loadingMark ? 'Submitting...' : 'Commit Mark'}
+                {loadingMark ? 'Saving...' : 'Commit Evaluation'}
               </button>
             </form>
           </div>
