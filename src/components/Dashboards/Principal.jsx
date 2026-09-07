@@ -21,6 +21,15 @@ const Principal = ({ user }) => {
   const [newStreamInput, setNewStreamInput] = useState('');
   const [loadingStream, setLoadingStream] = useState(false);
 
+  // Class Levels State (Grades 1-12 & Form 1-4)
+  const [classes, setClasses] = useState([]);
+  const [newClassForm, setNewClassForm] = useState({
+    className: '',
+    curriculum: 'CBC',
+    tier: 'Junior School'
+  });
+  const [loadingClass, setLoadingClass] = useState(false);
+
   // Staff Management State
   const [staffList, setStaffList] = useState([]);
   const [staffForm, setStaffForm] = useState({ fullName: '', role: 'Teacher' });
@@ -32,8 +41,8 @@ const Principal = ({ user }) => {
   const [studentForm, setStudentForm] = useState({
     admissionNumber: '',
     fullName: '',
-    curriculum: 'CBC (Junior/Senior)',
-    gradeLevel: 'Grade 9',
+    curriculum: 'CBC',
+    gradeLevel: '',
     stream: '',
     upiNumber: '',
     guardianName: '',
@@ -78,6 +87,25 @@ const Principal = ({ user }) => {
     }
   };
 
+  // Fetch Dynamic Classes from Database
+  const fetchClasses = async () => {
+    try {
+      const res = await API.get(`/academics/classes/${user.schoolId}`);
+      if (res.data.success) {
+        setClasses(res.data.classes || []);
+        if (res.data.classes.length > 0 && !studentForm.gradeLevel) {
+          setStudentForm(prev => ({ 
+            ...prev, 
+            gradeLevel: res.data.classes[0].class_name,
+            curriculum: res.data.classes[0].curriculum 
+          }));
+        }
+      }
+    } catch (err) {
+      console.error("Classes fetch error:", err);
+    }
+  };
+
   // Fetch Staff List
   const fetchStaff = async () => {
     try {
@@ -105,6 +133,7 @@ const Principal = ({ user }) => {
     if (user?.schoolId) {
       fetchStats();
       fetchStreams();
+      fetchClasses();
       fetchStaff();
       fetchStudents();
     }
@@ -144,6 +173,41 @@ const Principal = ({ user }) => {
     }
   };
 
+  // Handler: Add Class Level to Database
+  const handleAddClass = async (e) => {
+    e.preventDefault();
+    if (!newClassForm.className.trim()) return;
+
+    setLoadingClass(true);
+    try {
+      const res = await API.post('/academics/classes', {
+        schoolId: user.schoolId,
+        className: newClassForm.className.trim(),
+        curriculum: newClassForm.curriculum,
+        tier: newClassForm.tier
+      });
+      toast.success(res.data.message || `Class "${newClassForm.className}" added!`);
+      setNewClassForm({ className: '', curriculum: 'CBC', tier: 'Junior School' });
+      fetchClasses();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to add class");
+    } finally {
+      setLoadingClass(false);
+    }
+  };
+
+  // Handler: Delete Class Level
+  const handleDeleteClass = async (classId, className) => {
+    if (!window.confirm(`Delete class "${className}"?`)) return;
+    try {
+      await API.delete(`/academics/classes/${classId}`);
+      toast.success(`Class "${className}" removed`);
+      fetchClasses();
+    } catch (err) {
+      toast.error("Failed to delete class");
+    }
+  };
+
   // Handler: Register Staff Member
   const handleRegisterStaff = async (e) => {
     e.preventDefault();
@@ -177,6 +241,9 @@ const Principal = ({ user }) => {
     if (!studentForm.stream) {
       return toast.error("Please add and select a stream first.");
     }
+    if (!studentForm.gradeLevel) {
+      return toast.error("Please add and select a class first.");
+    }
 
     setLoadingStudent(true);
     try {
@@ -188,8 +255,8 @@ const Principal = ({ user }) => {
       setStudentForm({
         admissionNumber: '',
         fullName: '',
-        curriculum: studentForm.curriculum,
-        gradeLevel: studentForm.gradeLevel,
+        curriculum: classes[0]?.curriculum || 'CBC',
+        gradeLevel: classes[0]?.class_name || '',
         stream: streams[0]?.stream_name || '',
         upiNumber: '',
         guardianName: '',
@@ -235,7 +302,7 @@ const Principal = ({ user }) => {
     setIsSidebarOpen(false);
   };
 
-  // Helper renderer for unfinished modules
+  // Helper renderer for placeholder modules
   const renderComingSoon = (title, description, icon) => (
     <div className="bg-white p-8 sm:p-12 rounded-3xl border border-slate-200 shadow-sm text-center max-w-xl mx-auto my-6 animate-in fade-in duration-300">
       <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl mx-auto flex items-center justify-center text-2xl mb-4 border border-blue-100">
@@ -534,9 +601,11 @@ const Principal = ({ user }) => {
           </div>
         )}
 
-        {/* 2. STREAM MANAGEMENT */}
+        {/* 2. STREAM & CLASS MANAGEMENT */}
         {activeTab === 'Stream Management' && (
-          <div className="space-y-6 animate-in fade-in duration-300">
+          <div className="space-y-8 animate-in fade-in duration-300">
+            
+            {/* STREAM CONFIGURATOR */}
             <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm max-w-2xl">
               <h3 className="text-xs font-black uppercase text-slate-400 mb-2">School Stream Configurator</h3>
               <p className="text-xs text-slate-500 mb-6">
@@ -583,6 +652,64 @@ const Principal = ({ user }) => {
                 )}
               </div>
             </div>
+
+            {/* CLASS LEVELS CONFIGURATOR */}
+            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm max-w-2xl">
+              <h3 className="text-xs font-black uppercase text-slate-400 mb-2">School Class Levels (CBC & 8-4-4)</h3>
+              <p className="text-xs text-slate-500 mb-6">
+                Manage Grade 1 through Grade 12 (CBC) and Form 1 through Form 4. Remove any levels this institution does not host.
+              </p>
+
+              <form onSubmit={handleAddClass} className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-6">
+                <input
+                  type="text"
+                  placeholder="Class Name (e.g. Grade 10)"
+                  value={newClassForm.className}
+                  onChange={(e) => setNewClassForm({ ...newClassForm, className: e.target.value })}
+                  className="sm:col-span-2 px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none focus:border-blue-600"
+                  required
+                />
+                <select
+                  value={newClassForm.curriculum}
+                  onChange={(e) => setNewClassForm({ ...newClassForm, curriculum: e.target.value })}
+                  className="px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
+                >
+                  <option value="CBC">CBC Framework</option>
+                  <option value="8-4-4">8-4-4 System</option>
+                </select>
+                <button
+                  type="submit"
+                  disabled={loadingClass}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase px-4 py-3 rounded-xl transition disabled:opacity-50"
+                >
+                  {loadingClass ? 'Saving...' : 'Add Class'}
+                </button>
+              </form>
+
+              <div className="flex flex-wrap gap-2">
+                {classes.length === 0 ? (
+                  <p className="text-xs text-slate-400 font-bold">No classes registered yet. Add one above.</p>
+                ) : (
+                  classes.map((c) => (
+                    <span 
+                      key={c.id} 
+                      className="bg-slate-100 border border-slate-200 text-slate-800 pl-3 pr-2 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2"
+                    >
+                      <span>{c.class_name}</span>
+                      <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-black">{c.curriculum}</span>
+                      <button 
+                        type="button" 
+                        onClick={() => handleDeleteClass(c.id, c.class_name)}
+                        className="text-slate-400 hover:text-red-500 transition p-1"
+                      >
+                        <i className="fas fa-times text-[10px]"></i>
+                      </button>
+                    </span>
+                  ))
+                )}
+              </div>
+            </div>
+
           </div>
         )}
 
@@ -672,8 +799,8 @@ const Principal = ({ user }) => {
         {activeTab === 'Student Admissions' && (
           <div className="space-y-6 animate-in fade-in duration-300">
             <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm">
-              <h3 className="text-xs font-black uppercase text-slate-400 mb-2">Admit Learner: CBC & 8-4-4 Supported</h3>
-              <p className="text-xs text-slate-500 mb-6">Enroll students into Junior/Senior CBC or Form 3/Form 4 classes.</p>
+              <h3 className="text-xs font-black uppercase text-slate-400 mb-2">Admit Learner: Dynamic Classes & Streams</h3>
+              <p className="text-xs text-slate-500 mb-6">Enroll students into any configured grade level (Grade 1-12 or Form 1-4) with assigned stream.</p>
 
               <form onSubmit={handleAdmitStudent} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
@@ -701,49 +828,35 @@ const Principal = ({ user }) => {
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Curriculum</label>
+                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Class / Grade Level</label>
                   <select
-                    value={studentForm.curriculum}
+                    value={studentForm.gradeLevel}
                     onChange={(e) => {
-                      const cur = e.target.value;
+                      const selectedClassName = e.target.value;
+                      const matchedClass = classes.find(c => c.class_name === selectedClassName);
                       setStudentForm({ 
                         ...studentForm, 
-                        curriculum: cur,
-                        gradeLevel: cur.includes('CBC') ? 'Grade 9' : 'Form 3'
+                        gradeLevel: selectedClassName,
+                        curriculum: matchedClass?.curriculum || 'CBC'
                       });
                     }}
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
+                    required
                   >
-                    <option value="CBC (Junior/Senior)">CBC (Junior & Senior School)</option>
-                    <option value="8-4-4 Secondary">8-4-4 Secondary</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Grade / Form Level</label>
-                  <select
-                    value={studentForm.gradeLevel}
-                    onChange={(e) => setStudentForm({ ...studentForm, gradeLevel: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
-                  >
-                    {studentForm.curriculum.includes('CBC') ? (
-                      <>
-                        <option value="Grade 7">Grade 7 (Junior School)</option>
-                        <option value="Grade 8">Grade 8 (Junior School)</option>
-                        <option value="Grade 9">Grade 9 (Junior School)</option>
-                        <option value="Grade 10">Grade 10 (Senior School)</option>
-                      </>
+                    {classes.length === 0 ? (
+                      <option value="">No classes found - configure in Streams & Classes</option>
                     ) : (
-                      <>
-                        <option value="Form 3">Form 3 (8-4-4)</option>
-                        <option value="Form 4">Form 4 (8-4-4)</option>
-                      </>
+                      classes.map((c) => (
+                        <option key={c.id} value={c.class_name}>
+                          {c.class_name} ({c.tier} — {c.curriculum})
+                        </option>
+                      ))
                     )}
                   </select>
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Stream</label>
+                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Stream Allocation</label>
                   <select
                     value={studentForm.stream}
                     onChange={(e) => setStudentForm({ ...studentForm, stream: e.target.value })}
@@ -751,7 +864,7 @@ const Principal = ({ user }) => {
                     required
                   >
                     {streams.length === 0 ? (
-                      <option value="">No streams found - add in Streams tab</option>
+                      <option value="">No streams found - configure in Streams & Classes</option>
                     ) : (
                       streams.map((st) => (
                         <option key={st.id} value={st.stream_name}>{st.stream_name}</option>
@@ -784,7 +897,7 @@ const Principal = ({ user }) => {
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Accommodation</label>
+                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Accommodation Status</label>
                   <select
                     value={studentForm.boardingStatus}
                     onChange={(e) => setStudentForm({ ...studentForm, boardingStatus: e.target.value })}
@@ -859,7 +972,7 @@ const Principal = ({ user }) => {
           </div>
         )}
 
-        {/* 6. ENTER MARKS (CALLS MODULAR EnterMarks.jsx) */}
+        {/* 6. ENTER MARKS (MODULAR) */}
         {activeTab === 'Enter Marks' && (
           <EnterMarks user={user} />
         )}
