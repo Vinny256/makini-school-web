@@ -6,103 +6,76 @@ const EnterMarks = ({ user }) => {
   const isAdmin = ['Principal', 'Deputy Principal', 'Dean of Studies'].includes(user?.role);
 
   // Term & Exam Series
-  const [currentTerm, setCurrentTerm] = useState(null);
+  const [currentTerm, setCurrentTerm] = useState({ academic_year: 2026, term_name: 'Term 1' });
   const [examSeries, setExamSeries] = useState([]);
   const [selectedExam, setSelectedExam] = useState('');
 
-  // Teacher Scoped Workload (for regular teachers)
-  const [workload, setWorkload] = useState([]);
-  const [selectedAllocation, setSelectedAllocation] = useState('');
-
-  // Admin Master Selectors (for Principal / Deputy / DOS)
+  // Dropdown Lists
   const [classList, setClassList] = useState([]);
   const [streamList, setStreamList] = useState([]);
   const [subjectList, setSubjectList] = useState([]);
 
+  // Selected Options
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedStream, setSelectedStream] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('');
 
-  // Learners Roster & Marks
+  // Roster & Marks
   const [roster, setRoster] = useState([]);
   const [marks, setMarks] = useState({});
   const [loading, setLoading] = useState(false);
   const [fetchingRoster, setFetchingRoster] = useState(false);
 
-  // 1. Fetch Session Info, Exams, and Options
+  // 1. Fetch Session Info & Exams
   useEffect(() => {
     if (!user?.schoolId) return;
 
-    // Load active term & exams
     API.get(`/academics/current-term/${user.schoolId}`)
       .then(res => {
-        if (res.data.currentTerm) {
-          setCurrentTerm(res.data.currentTerm);
-          const series = res.data.examSeries || [];
-          setExamSeries(series);
-          if (series.length > 0) setSelectedExam(series[0].exam_name);
-        } else {
-          setCurrentTerm({ academic_year: 2026, term_name: 'Term 1' });
-          setExamSeries([{ id: 1, exam_name: 'Mid Term' }, { id: 2, exam_name: 'End Term' }]);
-          setSelectedExam('Mid Term');
-        }
+        if (res.data.currentTerm) setCurrentTerm(res.data.currentTerm);
+        const series = res.data.examSeries || [];
+        setExamSeries(series);
+        if (series.length > 0) setSelectedExam(series[0].exam_name);
       })
       .catch(() => {
-        setCurrentTerm({ academic_year: 2026, term_name: 'Term 1' });
+        const defaults = [{ id: 1, exam_name: 'Mid Term' }, { id: 2, exam_name: 'End Term' }];
+        setExamSeries(defaults);
+        setSelectedExam('Mid Term');
       });
 
-    if (isAdmin) {
-      // Load all classes, streams, and subjects for admin override
-      Promise.all([
-        API.get(`/academics/classes/${user.schoolId}`),
-        API.get(`/academics/streams/${user.schoolId}`),
-        API.get(`/config/subjects/${user.schoolId}`)
-      ]).then(([classRes, streamRes, subRes]) => {
-        const classes = classRes.data.classes || [];
-        const streams = streamRes.data.streams || [];
-        const subjects = subRes.data.subjects || [];
+    // 2. Fetch Classes from /academics/classes
+    API.get(`/academics/classes/${user.schoolId}`)
+      .then(res => {
+        const cls = res.data.classes || [];
+        setClassList(cls);
+        if (cls.length > 0) setSelectedClass(cls[0].class_name);
+      })
+      .catch(err => console.error("Classes load error:", err));
 
-        setClassList(classes);
-        setStreamList(streams);
-        setSubjectList(subjects);
+    // 3. Fetch Streams from /academics/streams
+    API.get(`/academics/streams/${user.schoolId}`)
+      .then(res => {
+        const stms = res.data.streams || [];
+        setStreamList(stms);
+        if (stms.length > 0) setSelectedStream(stms[0].stream_name);
+      })
+      .catch(err => console.error("Streams load error:", err));
 
-        if (classes.length > 0) setSelectedClass(classes[0].class_name);
-        if (streams.length > 0) setSelectedStream(streams[0].stream_name);
-        if (subjects.length > 0) setSelectedSubject(subjects[0].id);
-      }).catch(err => console.error("Admin options load error:", err));
-    } else {
-      // Regular teacher: fetch strictly allocated classes
-      API.get(`/academics/my-workload/${user.schoolId}/${user.id}`)
-        .then(res => {
-          const items = res.data.workload || [];
-          setWorkload(items);
-          if (items.length > 0) setSelectedAllocation(JSON.stringify(items[0]));
-        })
-        .catch(err => console.error("Workload load error:", err));
-    }
-  }, [user?.schoolId, user?.id, isAdmin]);
+    // 4. Fetch Subjects from /academics/subjects
+    API.get(`/academics/subjects/${user.schoolId}`)
+      .then(res => {
+        const subs = res.data.subjects || [];
+        setSubjectList(subs);
+        if (subs.length > 0) setSelectedSubject(subs[0].id);
+      })
+      .catch(err => console.error("Subjects load error:", err));
+  }, [user?.schoolId]);
 
-  // 2. Fetch Roster
+  // 5. Fetch Roster when class or stream changes
   useEffect(() => {
-    let targetClass = '';
-    let targetStream = '';
-
-    if (isAdmin) {
-      targetClass = selectedClass;
-      targetStream = selectedStream;
-    } else if (selectedAllocation) {
-      try {
-        const parsed = JSON.parse(selectedAllocation);
-        targetClass = parsed.grade_level;
-        targetStream = parsed.stream_name;
-      } catch (e) {
-        return;
-      }
-    }
-
-    if (targetClass && targetStream && user?.schoolId) {
+    if (selectedClass && selectedStream && user?.schoolId) {
       setFetchingRoster(true);
-      API.get(`/academics/roster/${user.schoolId}?gradeLevel=${targetClass}&stream=${targetStream}`)
+      API.get(`/academics/roster/${user.schoolId}?gradeLevel=${encodeURIComponent(selectedClass)}&stream=${encodeURIComponent(selectedStream)}`)
         .then(res => {
           setRoster(res.data.students || []);
           setMarks({});
@@ -110,7 +83,7 @@ const EnterMarks = ({ user }) => {
         .catch(err => console.error("Roster fetch error:", err))
         .finally(() => setFetchingRoster(false));
     }
-  }, [isAdmin, selectedClass, selectedStream, selectedAllocation, user?.schoolId]);
+  }, [selectedClass, selectedStream, user?.schoolId]);
 
   const handleScoreChange = (studentId, value) => {
     setMarks(prev => ({ ...prev, [studentId]: value }));
@@ -119,32 +92,19 @@ const EnterMarks = ({ user }) => {
   const handleSaveAllMarks = async (e) => {
     e.preventDefault();
     if (!selectedExam) return toast.error("Please select an exam series.");
-
-    let subjectId, gradeLevel, streamId;
-
-    if (isAdmin) {
-      subjectId = selectedSubject;
-      gradeLevel = selectedClass;
-      const matchedStream = streamList.find(s => s.stream_name === selectedStream);
-      streamId = matchedStream?.id;
-    } else {
-      const parsed = JSON.parse(selectedAllocation);
-      subjectId = parsed.subject_id;
-      gradeLevel = parsed.grade_level;
-      streamId = parsed.stream_id;
-    }
-
-    if (!subjectId) return toast.error("Please select a subject.");
+    if (!selectedSubject) return toast.error("Please select a subject.");
 
     setLoading(true);
     try {
+      const matchedStream = streamList.find(s => s.stream_name.toLowerCase() === selectedStream.toLowerCase());
+
       await API.post('/academics/record-batch', {
         schoolId: user.schoolId,
         term: currentTerm?.term_name || 'Term 1',
         examType: selectedExam,
-        subjectId,
-        gradeLevel,
-        streamId,
+        subjectId: selectedSubject,
+        gradeLevel: selectedClass,
+        streamId: matchedStream?.id || null,
         marks
       });
       toast.success("Scores recorded successfully!");
@@ -163,7 +123,7 @@ const EnterMarks = ({ user }) => {
             Grading & Marks Entry
           </h2>
           <p className="text-xs text-slate-500 font-semibold mt-0.5">
-            Academic Session: {currentTerm ? `${currentTerm.academic_year} — ${currentTerm.term_name}` : 'Term 1 2026'}
+            Academic Session: {currentTerm?.academic_year} — {currentTerm?.term_name}
           </p>
         </div>
         {isAdmin && (
@@ -174,99 +134,61 @@ const EnterMarks = ({ user }) => {
       </div>
 
       {/* WORKSPACE SELECTORS */}
-      {isAdmin ? (
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-          <div>
-            <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Class</label>
-            <select
-              value={selectedClass}
-              onChange={(e) => setSelectedClass(e.target.value)}
-              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
-            >
-              {classList.map(c => (
-                <option key={c.id} value={c.class_name}>{c.class_name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Stream</label>
-            <select
-              value={selectedStream}
-              onChange={(e) => setSelectedStream(e.target.value)}
-              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
-            >
-              {streamList.map(s => (
-                <option key={s.id} value={s.stream_name}>{s.stream_name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Subject</label>
-            <select
-              value={selectedSubject}
-              onChange={(e) => setSelectedSubject(e.target.value)}
-              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
-            >
-              {subjectList.map(sub => (
-                <option key={sub.id} value={sub.id}>{sub.subject_name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Exam Series</label>
-            <select
-              value={selectedExam}
-              onChange={(e) => setSelectedExam(e.target.value)}
-              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
-            >
-              {examSeries.map(es => (
-                <option key={es.id} value={es.exam_name}>{es.exam_name}</option>
-              ))}
-            </select>
-          </div>
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <div>
+          <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Class</label>
+          <select
+            value={selectedClass}
+            onChange={(e) => setSelectedClass(e.target.value)}
+            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
+          >
+            {classList.map(c => (
+              <option key={c.id} value={c.class_name}>{c.class_name}</option>
+            ))}
+          </select>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">
-              Assigned Class & Subject
-            </label>
-            <select
-              value={selectedAllocation}
-              onChange={(e) => setSelectedAllocation(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
-            >
-              {workload.length === 0 ? (
-                <option value="">No classes allocated yet (Contact DOS)</option>
-              ) : (
-                workload.map(w => (
-                  <option key={w.id} value={JSON.stringify(w)}>
-                    {w.grade_level} ({w.stream_name}) — {w.subject_name}
-                  </option>
-                ))
-              )}
-            </select>
-          </div>
 
-          <div>
-            <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Exam Series</label>
-            <select
-              value={selectedExam}
-              onChange={(e) => setSelectedExam(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
-            >
-              {examSeries.map(es => (
-                <option key={es.id} value={es.exam_name}>{es.exam_name}</option>
-              ))}
-            </select>
-          </div>
+        <div>
+          <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Stream</label>
+          <select
+            value={selectedStream}
+            onChange={(e) => setSelectedStream(e.target.value)}
+            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
+          >
+            {streamList.map(s => (
+              <option key={s.id} value={s.stream_name}>{s.stream_name}</option>
+            ))}
+          </select>
         </div>
-      )}
 
-      {/* ROSTER MARKS ENTRY */}
+        <div>
+          <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Subject</label>
+          <select
+            value={selectedSubject}
+            onChange={(e) => setSelectedSubject(e.target.value)}
+            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
+          >
+            {subjectList.map(sub => (
+              <option key={sub.id} value={sub.id}>{sub.subject_name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Exam Series</label>
+          <select
+            value={selectedExam}
+            onChange={(e) => setSelectedExam(e.target.value)}
+            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold outline-none"
+          >
+            {examSeries.map(es => (
+              <option key={es.id} value={es.exam_name}>{es.exam_name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* ROSTER TABLE */}
       {fetchingRoster ? (
         <div className="p-8 text-center text-slate-400 text-xs font-bold uppercase tracking-wider">
           Loading Class Roster...
@@ -315,7 +237,7 @@ const EnterMarks = ({ user }) => {
         </form>
       ) : (
         <div className="p-8 text-center text-slate-400 text-xs font-bold border-2 border-dashed border-slate-100 rounded-2xl">
-          No learners found registered in this class and stream combination.
+          No learners found registered in {selectedClass || 'this class'} ({selectedStream || 'this stream'}).
         </div>
       )}
     </div>
