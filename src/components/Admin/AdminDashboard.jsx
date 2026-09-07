@@ -1,5 +1,10 @@
-import React from 'react';
+import React from 'react'; 
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast'; 
+
+// Components
 import PrincipalHome from '../Dashboards/Principal';
+import DeputyPrincipalHome from '../Dashboards/DeputyPrincipal'; // Added Deputy Principal import
 import DeanHome from '../Dashboards/DeanOfStudents';
 import TeacherHome from '../Dashboards/Teacher'; 
 import ParentHome from '../Dashboards/Parent';
@@ -18,6 +23,8 @@ const AdminDashboard = () => {
   switch (currentRole) {
     case 'PRINCIPAL':
       return <PrincipalHome user={user} />;
+    case 'DEPUTY PRINCIPAL':
+      return <DeputyPrincipalHome user={user} />; // Handled Deputy Principal role
     case 'DEAN OF STUDENTS':
     case 'DEAN': // Added a backup match for Dean
       return <DeanHome user={user} />;
