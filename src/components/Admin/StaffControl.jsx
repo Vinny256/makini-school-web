@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 
 const StaffControl = ({ user, onStaffUpdated }) => {
   const [staffList, setStaffList] = useState([]);
+  const [availableSubjects, setAvailableSubjects] = useState([]);
   const [staffForm, setStaffForm] = useState({ 
     fullName: '', 
     role: 'Teacher',
@@ -12,32 +13,32 @@ const StaffControl = ({ user, onStaffUpdated }) => {
   const [loadingStaff, setLoadingStaff] = useState(false);
   const [staffToDelete, setStaffToDelete] = useState(null);
 
-  const availableSubjects = [
-    'Mathematics', 'English', 'Kiswahili', 'Biology', 
-    'Chemistry', 'Physics', 'Agriculture', 'Geography', 'History', 'Business Studies'
-  ];
-
-  const fetchStaff = async () => {
+  const fetchData = async () => {
+    if (!user?.schoolId) return;
     try {
-      const res = await API.get(`/staff/school/${user.schoolId}`);
-      setStaffList(res.data || []);
+      const [staffRes, subRes] = await Promise.all([
+        API.get(`/staff/school/${user.schoolId}`),
+        API.get(`/academics/subjects/${user.schoolId}`)
+      ]);
+      setStaffList(staffRes.data || []);
+      setAvailableSubjects(subRes.data.subjects || []);
     } catch (err) {
-      toast.error("Failed to load staff directory");
+      toast.error("Failed to load staff directory or subjects");
     }
   };
 
   useEffect(() => {
-    if (user?.schoolId) fetchStaff();
+    fetchData();
   }, [user?.schoolId]);
 
-  const handleSubjectToggle = (sub) => {
+  const handleSubjectToggle = (subName) => {
     setStaffForm(prev => {
-      const exists = prev.teachingSubjects.includes(sub);
+      const exists = prev.teachingSubjects.includes(subName);
       return {
         ...prev,
         teachingSubjects: exists 
-          ? prev.teachingSubjects.filter(s => s !== sub)
-          : [...prev.teachingSubjects, sub]
+          ? prev.teachingSubjects.filter(s => s !== subName)
+          : [...prev.teachingSubjects, subName]
       };
     });
   };
@@ -60,7 +61,7 @@ const StaffControl = ({ user, onStaffUpdated }) => {
         { duration: 8000 }
       );
       setStaffForm({ fullName: '', role: 'Teacher', teachingSubjects: [] });
-      fetchStaff();
+      fetchData();
       if (onStaffUpdated) onStaffUpdated();
     } catch (err) {
       toast.error(err.response?.data?.message || "Registration failed");
@@ -75,7 +76,7 @@ const StaffControl = ({ user, onStaffUpdated }) => {
       await API.delete(`/staff/${staffToDelete.id}`);
       toast.success(`Removed ${staffToDelete.full_name} from staff registry.`);
       setStaffToDelete(null);
-      fetchStaff();
+      fetchData();
       if (onStaffUpdated) onStaffUpdated();
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to delete staff member.");
@@ -129,31 +130,36 @@ const StaffControl = ({ user, onStaffUpdated }) => {
             </button>
           </div>
 
-          {/* TEACHING SUBJECTS MULTI-SELECT CHECKLIST */}
+          {/* TEACHING SUBJECTS DYNAMIC CHECKLIST */}
           {staffForm.role === 'Teacher' && (
             <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl animate-in fade-in">
               <label className="text-[10px] font-black uppercase text-slate-400 block mb-2">
-                Authorized Teaching Subjects (Select all that apply)
+                Authorized Teaching Subjects (Fetched from School Registry)
               </label>
-              <div className="flex flex-wrap gap-2">
-                {availableSubjects.map((sub) => {
-                  const isSelected = staffForm.teachingSubjects.includes(sub);
-                  return (
-                    <button
-                      key={sub}
-                      type="button"
-                      onClick={() => handleSubjectToggle(sub)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                        isSelected 
-                          ? 'bg-blue-600 text-white shadow-sm' 
-                          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      {sub} {isSelected && '✓'}
-                    </button>
-                  );
-                })}
-              </div>
+              {availableSubjects.length === 0 ? (
+                <p className="text-xs text-rose-500 font-bold">No subjects found. Please add subjects under 'Subjects & Exams' first.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {availableSubjects.map((sub) => {
+                    const subName = sub.subject_name;
+                    const isSelected = staffForm.teachingSubjects.includes(subName);
+                    return (
+                      <button
+                        key={sub.id}
+                        type="button"
+                        onClick={() => handleSubjectToggle(subName)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                          isSelected 
+                            ? 'bg-blue-600 text-white shadow-sm' 
+                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        {subName} {isSelected && '✓'}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </form>
