@@ -4,9 +4,10 @@ import { toast } from 'react-hot-toast';
 import EnterMarks from '../Admin/EnterMarks';
 import StaffControl from '../Admin/StaffControl';
 import StreamClassManagement from '../Admin/StreamClassManagement';
-import SubjectsAndExamsControl from '../Admin/SubjectsAndExamsControl'; // Added import for subjects & exams control
+import SubjectsAndExamsControl from '../Admin/SubjectsAndExamsControl';
 import StudentAdmissions from '../Admin/StudentAdmissions';
 import LearnersDirectory from '../Admin/LearnersDirectory';
+import ExamAnalysis from '../Admin/ExamAnalysis'; // Updated import to activate the dynamic broadsheet & analysis desk
 import Overview from '../Admin/Overview';
 
 const Principal = ({ user }) => {
@@ -438,11 +439,9 @@ const Principal = ({ user }) => {
           </div>
         )}
 
-        {/* 4. PLACEHOLDER DESKS */}
-        {activeTab === 'Exam Analysis' && renderComingSoon(
-          'Academic Merit & Exam Analysis',
-          'Dean of Studies analytical reports, subject performance breakdowns, and report card generation will appear here.',
-          'fa-file-alt'
+        {/* 4. ACTIVE INSTITUTIONAL DESKS */}
+        {activeTab === 'Exam Analysis' && (
+          <ExamAnalysis user={user} />
         )}
 
         {activeTab === 'Fee Operations' && renderComingSoon(
