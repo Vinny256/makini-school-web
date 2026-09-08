@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import EnterMarks from '../Admin/EnterMarks';
 import StaffControl from '../Admin/StaffControl';
 import StreamClassManagement from '../Admin/StreamClassManagement';
+import SubjectsAndExamsControl from '../Admin/SubjectsAndExamsControl'; // Added import for subjects & exams control
 import StudentAdmissions from '../Admin/StudentAdmissions';
 import LearnersDirectory from '../Admin/LearnersDirectory';
 import Overview from '../Admin/Overview';
@@ -173,6 +174,16 @@ const Principal = ({ user }) => {
             }`}
           >
             <i className="fas fa-layer-group w-5"></i> <span>Streams & Classes</span>
+          </button>
+
+          <button 
+            type="button"
+            onClick={() => switchTab('Subjects & Exams')}
+            className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-sm transition-all ${
+              activeTab === 'Subjects & Exams' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-800'
+            }`}
+          >
+            <i className="fas fa-book-open w-5"></i> <span>Subjects & Exams</span>
           </button>
 
           <button 
@@ -359,6 +370,10 @@ const Principal = ({ user }) => {
           <StreamClassManagement user={user} />
         )}
 
+        {activeTab === 'Subjects & Exams' && (
+          <SubjectsAndExamsControl user={user} />
+        )}
+
         {activeTab === 'Student Admissions' && (
           <StudentAdmissions user={user} onStudentAdmitted={fetchStats} />
         )}
@@ -396,7 +411,7 @@ const Principal = ({ user }) => {
                   <option value="Fee Defaulters">Fee Defaulters Only</option>
                   <option value="Board of Management">Board of Management (B.O.M)</option>
                 </select>
-            </div>
+              </div>
 
               <div>
                 <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">
@@ -410,7 +425,7 @@ const Principal = ({ user }) => {
                   className="w-full p-4 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium outline-none focus:border-blue-600 resize-none"
                   required
                 />
-            </div>
+              </div>
 
               <button
                 type="submit"
