@@ -286,8 +286,17 @@ const EnterMarks = ({ user }) => {
     }
   };
 
-  // Filter roster dynamically using the search bar
-  const filteredRoster = roster.filter(st =>
+  // 4. Filter roster by subject enrolment AND search query
+  const targetSubObj = subjectList.find(s => String(s.id) === String(selectedSubject));
+  const currentSubName = targetSubObj ? targetSubObj.subject_name.toLowerCase() : '';
+
+  const subjectFilteredRoster = roster.filter(student => {
+    const studentSubs = (student.student_subjects || []).map(s => s.toLowerCase());
+    if (studentSubs.length === 0) return true; // Fallback if no subjects were specified during admission
+    return studentSubs.includes(currentSubName);
+  });
+
+  const filteredRoster = subjectFilteredRoster.filter(st =>
     st.full_name?.toLowerCase().includes(studentSearch.toLowerCase()) ||
     st.admission_number?.toLowerCase().includes(studentSearch.toLowerCase())
   );
@@ -414,7 +423,7 @@ const EnterMarks = ({ user }) => {
           />
         </div>
         <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">
-          Showing {filteredRoster.length} of {roster.length} Learners
+          Showing {filteredRoster.length} of {subjectFilteredRoster.length} Enrolled Learners
         </span>
       </div>
 
@@ -423,7 +432,7 @@ const EnterMarks = ({ user }) => {
         <div className="p-8 text-center text-slate-400 text-xs font-bold uppercase tracking-wider">
           Loading Class Roster & Existing Marks...
         </div>
-      ) : roster.length > 0 ? (
+      ) : subjectFilteredRoster.length > 0 ? (
         <form onSubmit={handleSaveAllMarks} className="space-y-4">
           <div className="overflow-x-auto border border-slate-100 rounded-2xl w-full">
             <table className="w-full text-left min-w-[700px]">
@@ -541,7 +550,7 @@ const EnterMarks = ({ user }) => {
         </form>
       ) : (
         <div className="p-8 text-center text-slate-400 text-xs font-bold border-2 border-dashed border-slate-100 rounded-2xl">
-          No learners found registered in {selectedClass} ({selectedStream}).
+          No learners found enrolled for this subject in {selectedClass} ({selectedStream}).
         </div>
       )}
     </div>
