@@ -3,6 +3,7 @@ import API from '../../api';
 import { toast } from 'react-hot-toast';
 import EnterMarks from '../Admin/EnterMarks';
 import StreamClassManagement from '../Admin/StreamClassManagement';
+import SubjectsAndExamsControl from '../Admin/SubjectsAndExamsControl'; // Added import for subjects & exams control
 import StudentAdmissions from '../Admin/StudentAdmissions';
 import LearnersDirectory from '../Admin/LearnersDirectory';
 import Overview from '../Admin/Overview';
@@ -131,6 +132,16 @@ const DeputyPrincipal = ({ user }) => {
             }`}
           >
             <i className="fas fa-layer-group w-5"></i> <span>Streams & Classes</span>
+          </button>
+
+          <button 
+            type="button"
+            onClick={() => switchTab('Subjects & Exams')}
+            className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-sm transition-all ${
+              activeTab === 'Subjects & Exams' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:bg-slate-800'
+            }`}
+          >
+            <i className="fas fa-book-open w-5"></i> <span>Subjects & Exams</span>
           </button>
 
           <button 
@@ -311,6 +322,10 @@ const DeputyPrincipal = ({ user }) => {
         {/* 2. OPERATIONAL MODULES */}
         {activeTab === 'Stream Management' && (
           <StreamClassManagement user={user} />
+        )}
+
+        {activeTab === 'Subjects & Exams' && (
+          <SubjectsAndExamsControl user={user} />
         )}
 
         {activeTab === 'Student Admissions' && (
