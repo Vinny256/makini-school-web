@@ -38,18 +38,22 @@ const EnterMarks = ({ user }) => {
     return clean.includes('grade') || clean.includes('cbc') || clean.includes('pp');
   };
 
-  // 1. Calculate Rubric / Letter Grade in real time
+  // 1. Calculate Fine-Grained Rubric / Letter Grade in real time (EE1, EE2, ME1, ME2, etc.)
   const evaluateScore = (raw, max, isCbc) => {
-    if (raw === '' || raw === null || isNaN(raw)) return { percentage: null, rubric: '', color: '' };
+    if (raw === '' || raw === null || isNaN(raw)) return { percentage: null, rubric: '', label: '', color: '' };
     const numRaw = parseFloat(raw);
     const numMax = parseFloat(max) || 100;
     const pct = Math.round((numRaw / numMax) * 100);
 
     if (isCbc) {
-      if (pct >= 80) return { percentage: pct, rubric: 'EE', label: 'Exceeding Expectation', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' };
-      if (pct >= 60) return { percentage: pct, rubric: 'ME', label: 'Meeting Expectation', color: 'bg-blue-100 text-blue-800 border-blue-300' };
-      if (pct >= 40) return { percentage: pct, rubric: 'AE', label: 'Approaching Expectation', color: 'bg-amber-100 text-amber-800 border-amber-300' };
-      return { percentage: pct, rubric: 'BE', label: 'Below Expectation', color: 'bg-rose-100 text-rose-800 border-rose-300' };
+      if (pct >= 90) return { percentage: pct, rubric: 'EE2', label: 'Exceeding Expectation (High)', color: 'bg-emerald-200 text-emerald-900 border-emerald-400' };
+      if (pct >= 80) return { percentage: pct, rubric: 'EE1', label: 'Exceeding Expectation (Standard)', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' };
+      if (pct >= 70) return { percentage: pct, rubric: 'ME2', label: 'Meeting Expectation (High)', color: 'bg-blue-200 text-blue-900 border-blue-400' };
+      if (pct >= 60) return { percentage: pct, rubric: 'ME1', label: 'Meeting Expectation (Standard)', color: 'bg-blue-100 text-blue-800 border-blue-300' };
+      if (pct >= 50) return { percentage: pct, rubric: 'AE2', label: 'Approaching Expectation (High)', color: 'bg-amber-200 text-amber-900 border-amber-400' };
+      if (pct >= 40) return { percentage: pct, rubric: 'AE1', label: 'Approaching Expectation (Standard)', color: 'bg-amber-100 text-amber-800 border-amber-300' };
+      if (pct >= 30) return { percentage: pct, rubric: 'BE2', label: 'Below Expectation (Moderate)', color: 'bg-rose-200 text-rose-900 border-rose-400' };
+      return { percentage: pct, rubric: 'BE1', label: 'Below Expectation (Low)', color: 'bg-rose-100 text-rose-800 border-rose-300' };
     } else {
       if (pct >= 80) return { percentage: pct, rubric: 'A', label: 'A (Plain)', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' };
       if (pct >= 75) return { percentage: pct, rubric: 'A-', label: 'A- (Minus)', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
@@ -292,7 +296,7 @@ const EnterMarks = ({ user }) => {
 
   const subjectFilteredRoster = roster.filter(student => {
     const studentSubs = (student.student_subjects || []).map(s => s.toLowerCase());
-    if (studentSubs.length === 0) return true; // Fallback if no subjects were specified during admission
+    if (studentSubs.length === 0) return true; 
     return studentSubs.includes(currentSubName);
   });
 
@@ -311,7 +315,7 @@ const EnterMarks = ({ user }) => {
             Grading & Assessment Hub
           </h2>
           <p className="text-xs text-slate-500 font-semibold mt-0.5">
-            Academic Session: {currentTerm?.academic_year} — {currentTerm?.term_name} | Framework: {isCbcClass(selectedClass) ? 'CBC Competency Grading' : '8-4-4 Standard Scale'}
+            Academic Session: {currentTerm?.academic_year} — {currentTerm?.term_name} | Framework: {isCbcClass(selectedClass) ? 'CBC Competency Grading (EE1–BE2)' : '8-4-4 Standard Scale'}
           </p>
         </div>
 
@@ -442,7 +446,7 @@ const EnterMarks = ({ user }) => {
                   <th className="p-4">Learner Name</th>
                   <th className="p-4 text-center">Score (/{maxMarks})</th>
                   <th className="p-4 text-center">Normalized (%)</th>
-                  <th className="p-4 text-center">{isCbcClass(selectedClass) ? 'CBC Rubric' : '8-4-4 Grade'}</th>
+                  <th className="p-4 text-center">{isCbcClass(selectedClass) ? 'CBC Rubric (EE1–BE2)' : '8-4-4 Grade'}</th>
                   <th className="p-4 text-right">Action</th>
                 </tr>
               </thead>
